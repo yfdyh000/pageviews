@@ -1,56 +1,49 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
-/**
- * @file Configuration for Pageviews application
- * @author MusikAnimal
- * @copyright 2016 MusikAnimal
- */
-
 var templates = require('./templates');
 var pv = require('./shared/pv');
 
-/**
- * Configuration for Pageviews application.
- * This includes selectors, defaults, and other constants specific to Pageviews
- * @type {Object}
- */
 var config = {
   articleSelector: '.aqs-article-selector',
   chart: '.aqs-chart',
   chartConfig: {
-    Line: {
-      opts: {
-        bezierCurve: false,
-        legendTemplate: templates.linearLegend
-      },
+    line: {
       dataset: function dataset(color) {
         return {
-          fillColor: 'rgba(0,0,0,0)',
+          color: color,
+          backgroundColor: 'rgba(0,0,0,0)',
+          borderColor: color,
           pointColor: color,
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          pointStrokeColor: '#fff',
-          strokeColor: color
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)'
         };
       }
     },
-    Bar: {
-      opts: {
-        barDatasetSpacing: 0,
-        barValueSpacing: 0,
-        legendTemplate: templates.linearLegend
-      },
+    bar: {
       dataset: function dataset(color) {
         return {
-          fillColor: pv.rgba(color, 0.5),
-          highlightFill: pv.rgba(color, 0.75),
-          highlightStroke: color,
-          strokeColor: pv.rgba(color, 0.8)
+          color: color,
+          backgroundColor: pv.rgba(color, 0.5),
+          borderColor: pv.rgba(color, 0.8),
+          borderWidth: 1,
+          hoverBackgroundColor: pv.rgba(color, 0.75),
+          hoverBorderColor: color
         };
+      },
+
+      opts: {
+        scales: {
+          xAxes: [{
+            barPercentage: 1.0,
+            categoryPercentage: 0.85
+          }]
+        }
       }
     },
-    Pie: {
+    pie: {
       opts: {
         legendTemplate: templates.circularLegend
       },
@@ -61,7 +54,7 @@ var config = {
         };
       }
     },
-    Doughnut: {
+    doughnut: {
       opts: {
         legendTemplate: templates.circularLegend
       },
@@ -72,7 +65,7 @@ var config = {
         };
       }
     },
-    PolarArea: {
+    polararea: {
       opts: {
         legendTemplate: templates.circularLegend
       },
@@ -83,7 +76,7 @@ var config = {
         };
       }
     },
-    Radar: {
+    radar: {
       opts: {
         legendTemplate: templates.linearLegend
       },
@@ -114,24 +107,46 @@ var config = {
   },
   dateRangeSelector: '.aqs-date-range-selector',
   globalChartOpts: {
-    animation: true,
-    animationEasing: 'easeInOutQuart',
-    animationSteps: 30,
-    labelsFilter: function labelsFilter(value, index, labels) {
-      if (labels.length >= 60) {
-        return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
-      } else {
-        return false;
+    animation: {
+      duration: 500,
+      easing: 'easeInOutQuart'
+    },
+    legend: {
+      display: false
+    },
+    tooltips: {
+      mode: 'label',
+      callbacks: {
+        label: function label(tooltipItem) {
+          if (Number.isNaN(tooltipItem.yLabel)) {
+            return ' ' + i18nMessages.unknown;
+          } else {
+            return ' ' + new Number(tooltipItem.yLabel).toLocaleString();
+          }
+        }
       }
     },
-    multiTooltipTemplate: '<%= formatNumber(value) %>',
-    scaleLabel: '<%= formatNumber(value) %>',
-    tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
+    legendCallback: function legendCallback(chart) {
+      return templates.linearLegend(chart.data.datasets);
+    }
+
+    // animation: true,
+    // animationEasing: 'easeInOutQuart',
+    // animationSteps: 30,
+    // labelsFilter: (value, index, labels) => {
+    //   if (labels.length >= 60) {
+    //     return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
+    //   } else {
+    //     return false;
+    //   }
+    // },
+    // multiTooltipTemplate: '<%= formatNumber(value) %>',
+    // scaleLabel: '<%= formatNumber(value) %>',
+    // tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
   },
-  linearCharts: ['Line', 'Bar', 'Radar'],
+  linearCharts: ['line', 'bar', 'radar'],
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
-  platformSelector: '#platform-select',
   projectInput: '.aqs-project-input',
   specialRanges: {
     'last-week': [moment().subtract(1, 'week').startOf('week'), moment().subtract(1, 'week').endOf('week')],
@@ -177,8 +192,6 @@ var siteDomains = Object.keys(siteMap).map(function (key) {
 });
 var Pv = require('./shared/pv');
 
-/** Main PageViews class */
-
 var PageViews = function (_Pv) {
   _inherits(PageViews, _Pv);
 
@@ -210,37 +223,35 @@ var PageViews = function (_Pv) {
     window.formatNumber = _this.formatNumber.bind(_this);
     window.getPageURL = _this.getPageURL.bind(_this);
     window.getLangviewsURL = _this.getLangviewsURL.bind(_this);
-    window.getExpandedPageURL = _this.getExpandedPageURL.bind(_this);
     window.numDaysInRange = _this.numDaysInRange.bind(_this);
-    window.isMultilangProject = _this.isMultilangProject.bind(_this);
+
+    _this.setupProjectInput();
+    _this.setupDateRangeSelector();
+    _this.setupArticleSelector();
+    _this.setupSettingsModal();
+    _this.setupSelect2Colors();
+    _this.popParams();
+    _this.setupListeners();
+
+    if (location.host !== 'localhost') {
+      /** simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :) */
+      $.ajax({
+        url: '//tools.wmflabs.org/musikanimal/api/pv_uses/' + _this.project,
+        method: 'PATCH'
+      });
+
+      _this.splash();
+    }
     return _this;
   }
 
   /**
-   * Initialize the application.
-   * Called in `pv.js` after translations have loaded
-   * @return {null} Nothing
+   * Destroy previous chart, if needed.
+   * @returns {null} nothing
    */
 
 
   _createClass(PageViews, [{
-    key: 'initialize',
-    value: function initialize() {
-      this.setupProjectInput();
-      this.setupDateRangeSelector();
-      this.setupArticleSelector();
-      this.setupSettingsModal();
-      this.setupSelect2Colors();
-      this.popParams();
-      this.setupListeners();
-    }
-
-    /**
-     * Destroy previous chart, if needed.
-     * @returns {null} nothing
-     */
-
-  }, {
     key: 'destroyChart',
     value: function destroyChart() {
       if (this.chartObj) {
@@ -268,7 +279,8 @@ var PageViews = function (_Pv) {
         dataRows[index] = [date];
       });
 
-      chartData.forEach(function (page) {
+      // FIXME: no longer using global
+      this.chartObj.data.datasets.forEach(function (page) {
         // Build an array of page titles for use in the CSV header
         var pageTitle = '"' + page.label.replace(/"/g, '""') + '"';
         titles.push(pageTitle);
@@ -304,7 +316,8 @@ var PageViews = function (_Pv) {
 
       var data = [];
 
-      chartData.forEach(function (page, index) {
+      // FIXME: no longer using global
+      this.chartObj.data.datasets.forEach(function (page, index) {
         var entry = {
           page: page.label.replace(/"/g, '\"').replace(/'/g, "\'"),
           color: page.strokeColor,
@@ -436,7 +449,7 @@ var PageViews = function (_Pv) {
   }, {
     key: 'getLangviewsURL',
     value: function getLangviewsURL(page) {
-      return '/langviews?' + $.param(this.getParams()) + '&page=' + page.replace(/[&%]/g, escape).score();
+      return '/langviews?' + $.param(this.getParams()) + '&page=' + page.replace(/[&%]/g, escape);
     }
 
     /**
@@ -467,15 +480,31 @@ var PageViews = function (_Pv) {
     }
 
     /**
-     * Get params needed to create a permanent link of visible data
-     * @return {Object} hash of params
+     * Get all user-inputted parameters except the pages
+     * @return {Object} project, platform, agent, etc.
      */
 
   }, {
-    key: 'getPermaLink',
-    value: function getPermaLink() {
-      var params = this.getParams(false);
-      delete params.range;
+    key: 'getParams',
+    value: function getParams() {
+      var params = {
+        project: $(config.projectInput).val(),
+        platform: $(config.platformSelector).val(),
+        agent: $('#agent-select').val()
+      };
+
+      /**
+       * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
+       * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
+       *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
+       */
+      if (this.specialRange) {
+        params.range = this.specialRange.range;
+      } else {
+        params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
+        params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
+      }
+
       return params;
     }
 
@@ -535,22 +564,6 @@ var PageViews = function (_Pv) {
     }
 
     /**
-     * Simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :)
-     * @return {null} nothing
-     */
-
-  }, {
-    key: 'patchUsage',
-    value: function patchUsage() {
-      if (location.host !== 'localhost') {
-        $.ajax({
-          url: '//tools.wmflabs.org/musikanimal/api/pv_uses/' + this.project,
-          method: 'PATCH'
-        });
-      }
-    }
-
-    /**
      * Parses the URL hash and sets all the inputs accordingly
      * Should only be called on initial page load, until we decide to support pop states (probably never)
      * @returns {null} nothing
@@ -561,6 +574,13 @@ var PageViews = function (_Pv) {
     value: function popParams() {
       var _this4 = this;
 
+      /** assume query params are supposed to be hash params */
+      if (document.location.search && !document.location.hash) {
+        return document.location.href = document.location.href.replace('?', '#');
+      } else if (document.location.search) {
+        return document.location.href = document.location.href.replace(/\?.*/, '');
+      }
+
       var startDate = undefined,
           endDate = undefined,
           params = this.parseHashParams();
@@ -568,26 +588,24 @@ var PageViews = function (_Pv) {
       $(config.projectInput).val(params.project || config.defaults.project);
       if (this.validateProject()) return;
 
-      this.patchUsage();
-
       /**
        * Check if we're using a valid range, and if so ignore any start/end dates.
        * If an invalid range, throw and error and use default dates.
        */
       if (params.range) {
         if (!this.setSpecialRange(params.range)) {
-          this.addSiteNotice('danger', $.i18n('param-error-3'), $.i18n('invalid-params'), true);
+          this.addSiteNotice('danger', i18nMessages.paramError3, i18nMessages.invalidParams, true);
           this.setSpecialRange(config.defaults.dateRange);
         }
       } else if (params.start) {
         startDate = moment(params.start || moment().subtract(config.defaults.daysAgo, 'days'));
         endDate = moment(params.end || Date.now());
         if (startDate < moment('2015-08-01') || endDate < moment('2015-08-01')) {
-          this.addSiteNotice('danger', $.i18n('param-error-1'), $.i18n('invalid-params'), true);
+          this.addSiteNotice('danger', i18nMessages.paramError1, i18nMessages.invalidParams, true);
           this.resetView();
           return;
         } else if (startDate > endDate) {
-          this.addSiteNotice('warning', $.i18n('param-error-2'), $.i18n('invalid-params'), true);
+          this.addSiteNotice('warning', i18nMessages.paramError2, i18nMessages.invalidParams, true);
           this.resetView();
           return;
         }
@@ -598,7 +616,7 @@ var PageViews = function (_Pv) {
         this.setSpecialRange(config.defaults.dateRange);
       }
 
-      $(config.platformSelector).val(params.platform || 'all-access');
+      $('#platform-select').val(params.platform || 'all-access');
       $('#agent-select').val(params.agent || 'user');
 
       this.resetArticleSelector();
@@ -669,38 +687,6 @@ var PageViews = function (_Pv) {
     }
 
     /**
-     * Get all user-inputted parameters except the pages
-     * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
-     * @return {Object} project, platform, agent, etc.
-     */
-
-  }, {
-    key: 'getParams',
-    value: function getParams() {
-      var specialRange = arguments.length <= 0 || arguments[0] === undefined ? true : arguments[0];
-
-      var params = {
-        project: $(config.projectInput).val(),
-        platform: $(config.platformSelector).val(),
-        agent: $('#agent-select').val()
-      };
-
-      /**
-       * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
-       * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
-       *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
-       */
-      if (this.specialRange && specialRange) {
-        params.range = this.specialRange.range;
-      } else {
-        params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
-        params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
-      }
-
-      return params;
-    }
-
-    /**
      * Replaces history state with new URL hash representing current user input
      * Called whenever we go to update the chart
      * @returns {null} nothing
@@ -709,14 +695,11 @@ var PageViews = function (_Pv) {
   }, {
     key: 'pushParams',
     value: function pushParams() {
-      var pages = $(config.articleSelector).select2('val') || [],
-          escapedPages = pages.join('|').replace(/[&%]/g, escape);
+      var pages = $(config.articleSelector).select2('val') || [];
 
       if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, document.title, '#' + $.param(this.getParams()) + '&pages=' + escapedPages);
+        window.history.replaceState({}, document.title, '#' + $.param(this.getParams()) + '&pages=' + pages.join('|').replace(/[&%]/g, escape));
       }
-
-      $('.permalink').prop('href', '#' + $.param(this.getPermaLink()) + '&pages=' + escapedPages);
     }
 
     /**
@@ -839,7 +822,7 @@ var PageViews = function (_Pv) {
       var params = {
         ajax: this.getArticleSelectorAjax(),
         tags: this.autocomplete === 'no_autocomplete',
-        placeholder: $.i18n('article-placeholder'),
+        placeholder: i18nMessages.articlePlaceholder,
         maximumSelectionLength: 10,
         minimumInputLength: 1
       };
@@ -882,22 +865,22 @@ var PageViews = function (_Pv) {
 
     /**
      * Attempt to fine-tune the pointer detection spacing based on how cluttered the chart is
-     * @returns {null} nothing
+     * @returns {Number} radius
      */
 
   }, {
     key: 'setChartPointDetectionRadius',
     value: function setChartPointDetectionRadius() {
-      if (this.chartType !== 'Line') return;
+      if (this.chartType !== 'line') return;
 
       if (this.numDaysInRange() > 50) {
-        Chart.defaults.Line.pointHitDetectionRadius = 3;
+        Chart.defaults.global.elements.point.hitRadius = 3;
       } else if (this.numDaysInRange() > 30) {
-        Chart.defaults.Line.pointHitDetectionRadius = 5;
+        Chart.defaults.global.elements.point.hitRadius = 5;
       } else if (this.numDaysInRange() > 20) {
-        Chart.defaults.Line.pointHitDetectionRadius = 10;
+        Chart.defaults.global.elements.point.hitRadius = 10;
       } else {
-        Chart.defaults.Line.pointHitDetectionRadius = 20;
+        Chart.defaults.global.elements.point.hitRadius = 30;
       }
     }
 
@@ -916,17 +899,17 @@ var PageViews = function (_Pv) {
       /** transform config.specialRanges to have i18n as keys */
       var ranges = {};
       Object.keys(config.specialRanges).forEach(function (key) {
-        ranges[$.i18n(key)] = config.specialRanges[key];
+        ranges[i18nMessages[key]] = config.specialRanges[key];
       });
 
       dateRangeSelector.daterangepicker({
         locale: {
           format: this.dateFormat,
-          applyLabel: $.i18n('apply'),
-          cancelLabel: $.i18n('cancel'),
-          customRangeLabel: $.i18n('custom-range'),
-          daysOfWeek: [$.i18n('su'), $.i18n('mo'), $.i18n('tu'), $.i18n('we'), $.i18n('th'), $.i18n('fr'), $.i18n('sa')],
-          monthNames: [$.i18n('january'), $.i18n('february'), $.i18n('march'), $.i18n('april'), $.i18n('may'), $.i18n('june'), $.i18n('july'), $.i18n('august'), $.i18n('september'), $.i18n('october'), $.i18n('november'), $.i18n('december')]
+          applyLabel: i18nMessages.apply,
+          cancelLabel: i18nMessages.cancel,
+          customRangeLabel: i18nMessages.customRange,
+          daysOfWeek: [i18nMessages.su, i18nMessages.mo, i18nMessages.tu, i18nMessages.we, i18nMessages.th, i18nMessages.fr, i18nMessages.sa],
+          monthNames: [i18nMessages.january, i18nMessages.february, i18nMessages.march, i18nMessages.april, i18nMessages.may, i18nMessages.june, i18nMessages.july, i18nMessages.august, i18nMessages.september, i18nMessages.october, i18nMessages.november, i18nMessages.december]
         },
         startDate: moment().subtract(config.defaults.daysAgo, 'days'),
         minDate: config.minDate,
@@ -935,7 +918,7 @@ var PageViews = function (_Pv) {
       });
 
       /** so people know why they can't query data older than August 2015 */
-      $('.daterangepicker').append($('<div>').addClass('daterange-notice').html($.i18n('date-notice', document.title, "<a href='http://stats.grok.se' target='_blank'>stats.grok.se</a>")));
+      $('.daterangepicker').append($('<div>').addClass('daterange-notice').html(i18nMessages.dateNotice));
 
       /**
        * The special date range options (buttons the right side of the daterange picker)
@@ -960,7 +943,7 @@ var PageViews = function (_Pv) {
       });
 
       dateRangeSelector.on('apply.daterangepicker', function (e, action) {
-        if (action.chosenLabel === $.i18n('custom-range')) {
+        if (action.chosenLabel === i18nMessages.customRange) {
           _this7.specialRange = null;
 
           /** force events to re-fire since apply.daterangepicker occurs before 'change' event */
@@ -1121,7 +1104,7 @@ var PageViews = function (_Pv) {
       articles.forEach(function (article, index) {
         var uriEncodedArticle = encodeURIComponent(article);
         /** @type {String} Url to query the API. */
-        var url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/' + _this11.project + ('/' + $(config.platformSelector).val() + '/' + $('#agent-select').val() + '/' + uriEncodedArticle + '/daily') + ('/' + startDate.format(config.timestampFormat) + '/' + endDate.format(config.timestampFormat));
+        var url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/' + _this11.project + ('/' + $('#platform-select').val() + '/' + $('#agent-select').val() + '/' + uriEncodedArticle + '/daily') + ('/' + startDate.format(config.timestampFormat) + '/' + endDate.format(config.timestampFormat));
         var promise = $.ajax({
           url: url,
           dataType: 'json'
@@ -1147,7 +1130,7 @@ var PageViews = function (_Pv) {
           }
         }).fail(function (data) {
           if (data.status === 404) {
-            _this11.writeMessage('<a href=\'' + _this11.getPageURL(article) + '\'>' + article.descore() + '</a> - ' + $.i18n('api-error-no-data'));
+            _this11.writeMessage('<a href=\'' + _this11.getPageURL(article) + '\'>' + article.descore() + '</a> - ' + i18nMessages.apiErrorNoData);
             articles = articles.filter(function (el) {
               return el !== article;
             });
@@ -1171,7 +1154,7 @@ var PageViews = function (_Pv) {
           var errorMessages = Array.from(new Set(errors)).map(function (error) {
             return '<li>' + error + '</li>';
           }).join('');
-          return _this11.writeMessage($.i18n('api-error') + '<ul>' + errorMessages + '</ul><br/>' + $.i18n('api-error-contact'), true);
+          return _this11.writeMessage(i18nMessages.apiError + '<ul>' + errorMessages + '</ul><br/>' + i18nMessages.apiErrorContact, true);
         }
 
         if (!articles.length) return;
@@ -1182,11 +1165,10 @@ var PageViews = function (_Pv) {
           sortedDatasets[articles.indexOf(dataset.label.score())] = dataset;
         });
 
-        /** export built datasets to global scope Chart templates */
-        window.chartData = sortedDatasets;
-
         $('.chart-container').removeClass('loading');
-        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts);
+        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts
+        // Object.assign(Chart.defaults.global, config.globalChartOpts);
+        );
         var linearData = { labels: labels, datasets: sortedDatasets };
 
         $('.chart-container').html('');
@@ -1194,7 +1176,11 @@ var PageViews = function (_Pv) {
         var context = $(config.chart)[0].getContext('2d');
 
         if (config.linearCharts.includes(_this11.chartType)) {
-          _this11.chartObj = new Chart(context)[_this11.chartType](linearData, options);
+          _this11.chartObj = new Chart(context, {
+            type: _this11.chartType,
+            data: linearData,
+            options: options
+          });
         } else {
           _this11.chartObj = new Chart(context)[_this11.chartType](sortedDatasets, options);
         }
@@ -1225,7 +1211,7 @@ var PageViews = function (_Pv) {
         $('.select2-selection--multiple').removeClass('disabled');
       } else {
         this.resetView();
-        this.writeMessage($.i18n('invalid-project', '<a href=\'//' + project + '\'>' + project + '</a>'), true);
+        this.writeMessage(i18nMessages.invalidProject.i18nArg('<a href=\'//' + project + '\'>' + project + '</a>'), true);
         $('.select2-selection--multiple').addClass('disabled');
         return true;
       }
@@ -1236,28 +1222,11 @@ var PageViews = function (_Pv) {
 }(Pv);
 
 $(document).ready(function () {
-  /** assume query params are supposed to be hash params */
-  if (document.location.search && !document.location.hash) {
-    return document.location.href = document.location.href.replace('?', '#');
-  } else if (document.location.search) {
-    return document.location.href = document.location.href.replace(/\?.*/, '');
-  }
-
-  $.extend(Chart.defaults.global, { animation: false, responsive: true });
-
   new PageViews();
 });
 
 },{"./config":1,"./shared/pv":5,"./shared/site_map":6}],3:[function(require,module,exports){
 'use strict';
-
-/**
- * @file Core JavaScript extensions, either to native JS or a library.
- *   Polyfills have their own file [polyfills.js](global.html#polyfills)
- * @author MusikAnimal
- * @copyright 2016 MusikAnimal
- * @license MIT License: https://opensource.org/licenses/MIT
- */
 
 String.prototype.descore = function () {
   return this.replace(/_/g, ' ');
@@ -1265,14 +1234,53 @@ String.prototype.descore = function () {
 String.prototype.score = function () {
   return this.replace(/ /g, '_');
 };
+String.prototype.i18nArg = function (args) {
+  var newStr = this;
+  Array.of(args).forEach(function (arg) {
+    newStr = newStr.replace('i18n-arg', arg);
+  });
+  return newStr;
+};
+
+/*
+ * HOT PATCH for Chart.js GetElementsAtEvent
+ * TODO: remove me when this gets implemented into Charts.js core
+ */
+Chart.Controller.prototype.getElementsAtEvent = function (e) {
+  var helpers = Chart.helpers;
+  var eventPosition = helpers.getRelativePosition(e, this.chart);
+  var elementsArray = [];
+
+  var found = function () {
+    if (this.data.datasets) {
+      for (var i = 0; i < this.data.datasets.length; i++) {
+        if (helpers.isDatasetVisible(this.data.datasets[i])) {
+          for (var j = 0; j < this.data.datasets[i].metaData.length; j++) {
+            /* eslint-disable max-depth */
+            if (this.data.datasets[i].metaData[j].inLabelRange(eventPosition.x, eventPosition.y)) {
+              return this.data.datasets[i].metaData[j];
+            }
+          }
+        }
+      }
+    }
+  }.call(this);
+
+  if (!found) {
+    return elementsArray;
+  }
+
+  helpers.each(this.data.datasets, function (dataset, dsIndex) {
+    if (helpers.isDatasetVisible(dataset)) {
+      elementsArray.push(dataset.metaData[found._index]);
+    }
+  });
+
+  return elementsArray;
+};
 
 },{}],4:[function(require,module,exports){
 'use strict';
-
-/**
- * @file Polyfills for users who refuse to upgrade their browsers
- *   Most code is adapted from [MDN](https://developer.mozilla.org)
- */
 
 // Array.includes function polyfill
 // This is not a full implementation, just a shorthand to indexOf !== -1
@@ -1343,30 +1351,6 @@ if (!Array.of) {
   };
 }
 
-// Array.find
-if (!Array.prototype.find) {
-  Array.prototype.find = function (predicate) {
-    if (this === null) {
-      throw new TypeError('Array.prototype.find called on null or undefined');
-    }
-    if (typeof predicate !== 'function') {
-      throw new TypeError('predicate must be a function');
-    }
-    var list = Object(this);
-    var length = list.length >>> 0;
-    var thisArg = arguments[1];
-    var value = undefined;
-
-    for (var i = 0; i < length; i++) {
-      value = list[i];
-      if (predicate.call(thisArg, value, i, list)) {
-        return value;
-      }
-    }
-    return undefined;
-  };
-}
-
 },{}],5:[function(require,module,exports){
 'use strict';
 
@@ -1376,18 +1360,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-/**
- * @file Shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews)
- * @author MusikAnimal, Kaldari
- * @copyright 2016 MusikAnimal
- * @license MIT License: https://opensource.org/licenses/MIT
- */
-
-/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -1395,26 +1368,9 @@ var Pv = function () {
 
     this.storage = {}; // used as fallback when localStorage is not supported
 
-    /** assign app instance to window for debugging on local environment */
     if (location.host === 'localhost') {
       window.app = this;
-    } else {
-      this.splash();
     }
-
-    /** show notice if on staging environment */
-    if (/-test/.test(location.pathname)) {
-      var actualPathName = location.pathname.replace(/-test\/?/, '');
-      this.addSiteNotice('warning', 'This is a staging environment. For the actual ' + document.title + ',\n         see <a href=\'' + actualPathName + '\'>' + location.hostname + actualPathName + '</a>');
-    }
-
-    /**
-     * Load translations then initialize the app
-     * Each app has it's own initialize method
-     */
-    $.i18n({
-      locale: i18nLang
-    }).load(_defineProperty({}, i18nLang, '/pageviews/messages/' + i18nLang + '.json')).then(this.initialize.bind(this));
   }
 
   _createClass(Pv, [{
@@ -1463,20 +1419,6 @@ var Pv = function () {
     }
 
     /**
-     * Get the explanded wiki URL given the page name
-     * This should be used instead of getPageURL when you want to chain query string parameters
-     *
-     * @param {string} page name
-     * @returns {string} URL for the page
-     */
-
-  }, {
-    key: 'getExpandedPageURL',
-    value: function getExpandedPageURL(page) {
-      return '//' + this.project + '.org/w/index.php?title=' + encodeURIComponent(page).replace(/ /g, '_').replace(/'/, escape);
-    }
-
-    /**
      * Get the wiki URL given the page name
      *
      * @param {string} page name
@@ -1502,7 +1444,7 @@ var Pv = function () {
         'ar-sa': 'DD/MM/YY',
         'bg-bg': 'DD.M.YYYY',
         'ca-es': 'DD/MM/YYYY',
-        'zh-tw': 'YYYY/M/D',
+        'zh-tw': 'YYYY/M/d',
         'cs-cz': 'D.M.YYYY',
         'da-dk': 'DD-MM-YYYY',
         'de-de': 'DD.MM.YYYY',
@@ -1637,7 +1579,7 @@ var Pv = function () {
         'tzm-latn-dz': 'DD-MM-YYYY',
         'iu-latn-ca': 'D/MM/YYYY',
         'sma-no': 'DD.MM.YYYY',
-        'mn-mong-cn': 'YYYY/M/D',
+        'mn-mong-cn': 'YYYY/M/d',
         'gd-gb': 'DD/MM/YYYY',
         'en-my': 'D/M/YYYY',
         'prs-af': 'DD/MM/YY',
@@ -1720,17 +1662,6 @@ var Pv = function () {
     }
 
     /**
-     * Test if the current project is a multilingual project
-     * @returns {Boolean} is multilingual or not
-     */
-
-  }, {
-    key: 'isMultilangProject',
-    value: function isMultilangProject() {
-      return new RegExp('.*?\\.(' + Pv.multilangProjects.join('|') + ')').test(this.project);
-    }
-
-    /**
      * Generate a unique hash code from given string
      * @param  {String} str - to be hashed
      * @return {String} the hash
@@ -1782,20 +1713,14 @@ var Pv = function () {
     }
 
     /**
-     * List of valid multilingual projects
-     * @return {Array} base projects, without the language
-     */
-
-  }, {
-    key: 'n',
-
-
-    /**
      * Localize Number object with delimiters
      *
      * @param {Number} value - the Number, e.g. 1234567
      * @returns {string} - with locale delimiters, e.g. 1,234,567 (en-US)
      */
+
+  }, {
+    key: 'n',
     value: function n(value) {
       return new Number(value).toLocaleString();
     }
@@ -1926,10 +1851,10 @@ var Pv = function () {
      * Adapted from http://jsfiddle.net/dandv/47cbj/ courtesy of dandv
      *
      * Same as _.debounce but queues and executes all function calls
-     * @param  {Function} fn - function to debounce
-     * @param  {delay} delay - delay duration of milliseconds
-     * @param  {object} context - scope the function should refer to
-     * @return {Function} rate-limited function to call instead of your function
+     * @param  {Function} fn      [description]
+     * @param  {[type]}   delay   [description]
+     * @param  {[type]}   context [description]
+     * @return {[type]}           [description]
      */
 
   }, {
@@ -2085,11 +2010,6 @@ var Pv = function () {
     value: function rgba(value, alpha) {
       return value.replace(/,\s*\d\)/, ', ' + alpha + ')');
     }
-  }, {
-    key: 'multilangProjects',
-    get: function get() {
-      return ['wikipedia', 'wikibooks', 'wikinews', 'wikiquote', 'wikisource', 'wikiversity', 'wikivoyage'];
-    }
   }]);
 
   return Pv;
@@ -2100,14 +2020,6 @@ module.exports = Pv;
 },{}],6:[function(require,module,exports){
 'use strict';
 
-/**
- * @file WMF [site matrix](https://www.mediawiki.org/w/api.php?action=sitematrix), with some unsupported wikis removed
- */
-
-/**
- * Sitematrix of all supported WMF wikis
- * @type {Object}
- */
 var siteMap = {
   'aawiki': 'aa.wikipedia.org',
   'aawiktionary': 'aa.wiktionary.org',
@@ -3008,26 +2920,41 @@ var siteMap = {
 module.exports = siteMap;
 
 },{}],7:[function(require,module,exports){
-"use strict";
+'use strict';
 
 /**
- * @file Templates used by Chart.js
- * @author MusikAnimal
- * @copyright 2016 MusikAnimal
- */
-
-/**
- * Templates used by Chart.js.
- * Functions used within our app must be in the global scope.
- * All quotations must be double-quotes or properly escaped.
+ * Templates used by Chart.js
+ * Functions used within our app must be in the global scope
+ * All quotations must be double-quotes or properly escaped
  * @type {Object}
  */
+var pv = require('./shared/pv');
+
 var templates = {
   // FIXME: add back a tile for Totals, and include totals for all of the currently selected project, and perhaps unique devices
-  linearLegend: "\n    <% if (chartData.length === 1) { %>\n      <strong><%= $.i18n('totals') %>:</strong>\n      <%= formatNumber(chartData[0].sum) %> (<%= formatNumber(Math.round(chartData[0].sum / numDaysInRange())) %>/<%= $.i18n('day') %>)\n      <% if (isMultilangProject()) { %>\n        &bullet;\n        <a href=\"<%= getLangviewsURL(chartData[0].label) %>\"><%= $.i18n('all-languages') %></a>\n      <% } %>\n      &bullet;\n      <a href=\"<%= getPageURL(chartData[0].label) %>?action=history\" target=\"_blank\"><%= $.i18n('history') %></a>\n      &bullet;\n      <a href=\"<%= getPageURL(chartData[0].label) %>?action=info\" target=\"_blank\"><%= $.i18n('info') %></a>\n    <% } else { %>\n      <% var total = chartData.reduce(function(a,b) { return a + b.sum }, 0); %>\n      <div class=\"linear-legend--totals\">\n        <strong><%= $.i18n('totals') %>:</strong>\n        <%= formatNumber(total) %> (<%= formatNumber(Math.round(total / numDaysInRange())) %>/<%= $.i18n('day') %>)\n      </div>\n      <div class=\"linear-legends\">\n        <% for (var i=0; i<chartData.length; i++) { %>\n          <span class=\"linear-legend\">\n            <div class=\"linear-legend--label\" style=\"background-color:<%= chartData[i].strokeColor %>\">\n              <a href=\"<%= getPageURL(chartData[i].label) %>\" target=\"_blank\"><%= chartData[i].label %></a>\n            </div>\n            <div class=\"linear-legend--counts\">\n              <%= formatNumber(chartData[i].sum) %> (<%= formatNumber(Math.round(chartData[i].sum / numDaysInRange())) %>/<%= $.i18n('day') %>)\n            </div>\n            <div class=\"linear-legend--links\">\n              <% if (isMultilangProject()) { %>\n                <a href=\"<%= getLangviewsURL(chartData[i].label) %>\">All languages</a>\n                &bullet;\n              <% } %>\n              <a href=\"<%= getExpandedPageURL(chartData[i].label) %>&action=history\" target=\"_blank\">History</a>\n              &bullet;\n              <a href=\"<%= getExpandedPageURL(chartData[i].label) %>&action=info\" target=\"_blank\">Info</a>\n            </div>\n          </span>\n        <% } %>\n      </div>\n    <% } %>",
-  circularLegend: "\n    <b><%= $.i18n('totals') %></b> <% var total = chartData.reduce(function(a,b){ return a + b.value }, 0); %>\n    <ul class=\"<%=name.toLowerCase()%>-legend\">\n      <% if(chartData.length > 1) { %><li><%= formatNumber(total) %> (<%= formatNumber(Math.round(total / numDaysInRange())) %>/<%= $.i18n('day') %>)</li><% } %>\n      <% for (var i=0; i<segments.length; i++) { %>\n        <li>\n          <span class=\"indic\" style=\"background-color:<%=segments[i].fillColor%>\">\n            <a href='<%= getPageURL(segments[i].label) %>'><%=segments[i].label%></a>\n          </span>\n          <%= formatNumber(chartData[i].value) %> (<%= formatNumber(Math.round(chartData[i].value / numDaysInRange())) %>/<%= $.i18n('day') %>)\n        </li>\n      <% } %>\n    </ul>\n    "
+  linearLegend: function linearLegend(datasets) {
+    var markup = '';
+    if (datasets.length === 1) {
+      var dataset = datasets[0];
+      return '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(dataset.sum) + ' (' + formatNumber(Math.round(dataset.sum / numDaysInRange())) + '/' + i18nMessages.day + ')\n        &bullet;\n        <a href="' + getLangviewsURL(dataset.label) + '" target="_blank">All languages</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=history" target="_blank">History</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=info" target="_blank">Info</a>\n      </div>';
+    }
+
+    if (datasets.length > 1) {
+      var total = datasets.reduce(function (a, b) {
+        return a + b.sum;
+      }, 0);
+      markup = '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n      </div>';
+    }
+    markup += '<div class="linear-legends">';
+
+    for (var i = 0; i < datasets.length; i++) {
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(Math.round(datasets[i].sum / numDaysInRange())) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+    }
+    return markup += '</div>';
+  },
+  circularLegend: '<b>' + i18nMessages.totals + '</b> <% var total = chartData.reduce(function(a,b){ return a + b.value }, 0); %>' + '<ul class=\"<%=name.toLowerCase()%>-legend\">' + ('<%if(chartData.length > 1) {%><li><%= formatNumber(total) %> (<%= formatNumber(Math.round(total / numDaysInRange())) %>/' + i18nMessages.day + ')</li><% } %>') + '<% for (var i=0; i<segments.length; i++){%>' + '<li><span class=\"indic\" style=\"background-color:<%=segments[i].fillColor%>\">' + "<a href='<%= getPageURL(segments[i].label) %>'><%=segments[i].label%></a></span> " + ('<%= formatNumber(chartData[i].value) %> (<%= formatNumber(Math.round(chartData[i].value / numDaysInRange())) %>/' + i18nMessages.day + ')</li><%}%></ul>')
 };
 
 module.exports = templates;
 
-},{}]},{},[3,4,5,6,2]);
+},{"./shared/pv":5}]},{},[3,4,5,6,2]);

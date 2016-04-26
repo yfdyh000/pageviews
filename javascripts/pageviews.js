@@ -87,7 +87,8 @@ class PageViews extends Pv {
       dataRows[index] = [date];
     });
 
-    chartData.forEach(page => {
+    // FIXME: no longer using global
+    this.chartObj.data.datasets.forEach(page => {
       // Build an array of page titles for use in the CSV header
       let pageTitle = '"' + page.label.replace(/"/g, '""') + '"';
       titles.push(pageTitle);
@@ -118,7 +119,8 @@ class PageViews extends Pv {
   exportJSON() {
     let data = [];
 
-    chartData.forEach((page, index) => {
+    // FIXME: no longer using global
+    this.chartObj.data.datasets.forEach((page, index) => {
       let entry = {
         page: page.label.replace(/"/g, '\"').replace(/'/g, "\'"),
         color: page.strokeColor,
@@ -269,6 +271,32 @@ class PageViews extends Pv {
   }
 
   /**
+   * Get all user-inputted parameters except the pages
+   * @return {Object} project, platform, agent, etc.
+   */
+  getParams() {
+    let params = {
+      project: $(config.projectInput).val(),
+      platform: $(config.platformSelector).val(),
+      agent: $('#agent-select').val()
+    };
+
+    /**
+     * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
+     * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
+     *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
+     */
+    if (this.specialRange) {
+      params.range = this.specialRange.range;
+    } else {
+      params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
+      params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
+    }
+
+    return params;
+  }
+
+  /**
    * Construct query for API based on what type of search we're doing
    * @param {Object} query - as returned from Select2 input
    * @returns {Object} query params to be handed off to API
@@ -336,6 +364,13 @@ class PageViews extends Pv {
    * @returns {null} nothing
    */
   popParams() {
+    /** assume query params are supposed to be hash params */
+    if (document.location.search && !document.location.hash) {
+      return document.location.href = document.location.href.replace('?', '#');
+    } else if (document.location.search) {
+      return document.location.href = document.location.href.replace(/\?.*/, '');
+    }
+
     let startDate, endDate, params = this.parseHashParams();
 
     $(config.projectInput).val(params.project || config.defaults.project);
@@ -436,33 +471,6 @@ class PageViews extends Pv {
     }
 
     return {results: results};
-  }
-
-  /**
-   * Get all user-inputted parameters except the pages
-   * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
-   * @return {Object} project, platform, agent, etc.
-   */
-  getParams(specialRange = true) {
-    let params = {
-      project: $(config.projectInput).val(),
-      platform: $(config.platformSelector).val(),
-      agent: $('#agent-select').val()
-    };
-
-    /**
-     * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
-     * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
-     *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
-     */
-    if (this.specialRange && specialRange) {
-      params.range = this.specialRange.range;
-    } else {
-      params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
-      params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
-    }
-
-    return params;
   }
 
   /**
@@ -619,19 +627,19 @@ class PageViews extends Pv {
 
   /**
    * Attempt to fine-tune the pointer detection spacing based on how cluttered the chart is
-   * @returns {null} nothing
+   * @returns {Number} radius
    */
   setChartPointDetectionRadius() {
-    if (this.chartType !== 'Line') return;
+    if (this.chartType !== 'line') return;
 
     if (this.numDaysInRange() > 50) {
-      Chart.defaults.Line.pointHitDetectionRadius = 3;
+      Chart.defaults.global.elements.point.hitRadius = 3;
     } else if (this.numDaysInRange() > 30) {
-      Chart.defaults.Line.pointHitDetectionRadius = 5;
+      Chart.defaults.global.elements.point.hitRadius = 5;
     } else if (this.numDaysInRange() > 20) {
-      Chart.defaults.Line.pointHitDetectionRadius = 10;
+      Chart.defaults.global.elements.point.hitRadius = 10;
     } else {
-      Chart.defaults.Line.pointHitDetectionRadius = 20;
+      Chart.defaults.global.elements.point.hitRadius = 30;
     }
   }
 
@@ -917,13 +925,11 @@ class PageViews extends Pv {
         sortedDatasets[articles.indexOf(dataset.label.score())] = dataset;
       });
 
-      /** export built datasets to global scope Chart templates */
-      window.chartData = sortedDatasets;
-
       $('.chart-container').removeClass('loading');
       const options = Object.assign({},
         config.chartConfig[this.chartType].opts,
         config.globalChartOpts
+        // Object.assign(Chart.defaults.global, config.globalChartOpts);
       );
       const linearData = {labels: labels, datasets: sortedDatasets};
 
@@ -932,7 +938,11 @@ class PageViews extends Pv {
       const context = $(config.chart)[0].getContext('2d');
 
       if (config.linearCharts.includes(this.chartType)) {
-        this.chartObj = new Chart(context)[this.chartType](linearData, options);
+        this.chartObj = new Chart(context, {
+          type: this.chartType,
+          data: linearData,
+          options
+        });
       } else {
         this.chartObj = new Chart(context)[this.chartType](sortedDatasets, options);
       }
@@ -971,14 +981,5 @@ class PageViews extends Pv {
 }
 
 $(document).ready(() => {
-  /** assume query params are supposed to be hash params */
-  if (document.location.search && !document.location.hash) {
-    return document.location.href = document.location.href.replace('?', '#');
-  } else if (document.location.search) {
-    return document.location.href = document.location.href.replace(/\?.*/, '');
-  }
-
-  $.extend(Chart.defaults.global, {animation: false, responsive: true});
-
   new PageViews();
 });

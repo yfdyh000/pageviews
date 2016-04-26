@@ -15,19 +15,19 @@
             <?php echo $I18N->msg( 'daily-pageviews' ); ?>
           </strong>
           <span class="modal-chart-type">
-            <a class="js-test-line-chart" data-dismiss="modal" data-type="Line" href="#">
+            <a class="js-test-line-chart" data-dismiss="modal" data-type="line" href="#">
               <img src="images/line-chart-small.jpg">
               <?php echo $I18N->msg( 'line' ); ?>
             </a>
           </span>
           <span class="modal-chart-type">
-            <a class="js-test-bar-chart" data-dismiss="modal" data-type="Bar" href="#">
+            <a class="js-test-bar-chart" data-dismiss="modal" data-type="bar" href="#">
               <img src="images/bar-chart-small.jpg">
               <?php echo $I18N->msg( 'bar' ); ?>
             </a>
           </span>
           <span class="modal-chart-type">
-            <a data-dismiss="modal" data-type="Radar" href="#">
+            <a data-dismiss="modal" data-type="radar" href="#">
               <img src="images/radar-chart-small.jpg">
               <?php echo $I18N->msg( 'radar' ); ?>
             </a>
@@ -39,19 +39,19 @@
             <?php echo $I18N->msg( 'total-pageviews' ); ?>
           </strong>
           <span class="modal-chart-type">
-            <a class="js-test-pie-chart" data-dismiss="modal" data-type="Pie" href="#">
+            <a class="js-test-pie-chart" data-dismiss="modal" data-type="pie" href="#">
               <img src="images/pie-chart-small.jpg">
               <?php echo $I18N->msg( 'pie' ); ?>
             </a>
           </span>
           <span class="modal-chart-type">
-            <a data-dismiss="modal" data-type="Doughnut" href="#">
+            <a data-dismiss="modal" data-type="doughnut" href="#">
               <img src="images/doughnut-chart-small.jpg">
               <?php echo $I18N->msg( 'doughnut' ); ?>
             </a>
           </span>
           <span class="modal-chart-type">
-            <a data-dismiss="modal" data-type="PolarArea" href="#">
+            <a data-dismiss="modal" data-type="polararea" href="#">
               <img src="images/polararea-chart-small.jpg">
               <?php echo $I18N->msg( 'polar-area' ); ?>
             </a>

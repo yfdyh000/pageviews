@@ -1,13 +1,9 @@
 <!-- Pageviews Analysis tool -->
-<!-- Original code forked from https://gist.github.com/marcelrf/49738d14116fd547fe6d -->
-<!-- courtesy of marcelrf -->
 <!-- Copyright 2016 MusikAnimal -->
-<!-- Redistributed under the MIT License: https://opensource.org/licenses/MIT -->
 <!DOCTYPE html>
 <html>
   <head>
     <?php include '_head.php'; ?>
-    <title><?php echo $I18N->msg( 'title' ); ?></title>
   </head>
   <body class="<?php echo $rtl; ?>">
     <div class="container">
@@ -21,9 +17,7 @@
       <main class="col-lg-10 col-lg-offset-1">
         <!-- Site notice -->
         <div class="text-center site-notice-wrapper">
-          <div class="site-notice">
-            <?php include "_browser_check.php"; ?>
-          </div>
+          <div class="site-notice"></div>
         </div>
         <div class="row aqs-row options">
           <!-- Date range selector -->
@@ -115,11 +109,8 @@
           &bullet;
           <a class="js-test-settings" data-target="#settings-modal" data-toggle="modal" href="#"><?php echo $I18N->msg( 'settings' ); ?></a>
           &bullet;
-          <a class="permalink" href="#"><span class="glyphicon glyphicon-link"></span>
-          <?php echo $I18N->msg( 'permalink' ); ?></a>
-          &bullet;
           <?php $csvlink = "<a class='download-csv' href='#'>" . $I18N->msg( 'csv' ) . "</a>"; ?>
-          <?php echo $I18N->msg( 'download', array( 'variables' => array( $csvlink ), 'parsemag' => true ) ); ?>
+          <?php echo $I18N->msg( 'download', array( 'variables' => array( $csvlink ) ) ); ?>
           &middot;
           <a class="download-json" href="#"><?php echo $I18N->msg( 'json' ); ?></a>
           <?php include "_lang_selector.php"; ?>

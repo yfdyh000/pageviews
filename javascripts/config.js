@@ -16,49 +16,41 @@ const config = {
   articleSelector: '.aqs-article-selector',
   chart: '.aqs-chart',
   chartConfig: {
-    Line: {
-      opts: {
-        bezierCurve: false,
-        legendTemplate: templates.linearLegend
-      },
+    line: {
       dataset(color) {
         return {
-          fillColor: 'rgba(0,0,0,0)',
+          color,
+          backgroundColor: 'rgba(0,0,0,0)',
+          borderColor: color,
           pointColor: color,
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          pointStrokeColor: '#fff',
-          strokeColor: color
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)'
         };
       }
     },
-    Bar: {
-      opts: {
-        barDatasetSpacing: 0,
-        barValueSpacing: 0,
-        legendTemplate: templates.linearLegend
-      },
+    bar: {
       dataset(color) {
         return {
-          fillColor: pv.rgba(color, 0.5),
-          highlightFill: pv.rgba(color, 0.75),
-          highlightStroke: color,
-          strokeColor: pv.rgba(color, 0.8)
+          color,
+          backgroundColor: pv.rgba(color, 0.5),
+          borderColor: pv.rgba(color, 0.8),
+          borderWidth: 1,
+          hoverBackgroundColor: pv.rgba(color, 0.75),
+          hoverBorderColor: color
         };
-      }
-    },
-    Pie: {
-      opts: {
-        legendTemplate: templates.circularLegend
       },
-      dataset(color) {
-        return {
-          color: color,
-          highlight: pv.rgba(color, 0.8)
-        };
+      opts: {
+        scales: {
+          xAxes: [{
+            barPercentage: 1.0,
+            categoryPercentage: 0.85
+          }]
+        }
       }
     },
-    Doughnut: {
+    pie: {
       opts: {
         legendTemplate: templates.circularLegend
       },
@@ -69,7 +61,7 @@ const config = {
         };
       }
     },
-    PolarArea: {
+    doughnut: {
       opts: {
         legendTemplate: templates.circularLegend
       },
@@ -80,7 +72,18 @@ const config = {
         };
       }
     },
-    Radar: {
+    polararea: {
+      opts: {
+        legendTemplate: templates.circularLegend
+      },
+      dataset(color) {
+        return {
+          color: color,
+          highlight: pv.rgba(color, 0.8)
+        };
+      }
+    },
+    radar: {
       opts: {
         legendTemplate: templates.linearLegend
       },
@@ -111,21 +114,44 @@ const config = {
   },
   dateRangeSelector: '.aqs-date-range-selector',
   globalChartOpts: {
-    animation: true,
-    animationEasing: 'easeInOutQuart',
-    animationSteps: 30,
-    labelsFilter: (value, index, labels) => {
-      if (labels.length >= 60) {
-        return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
-      } else {
-        return false;
+    animation: {
+      duration: 500,
+      easing: 'easeInOutQuart'
+    },
+    legend: {
+      display: false
+    },
+    tooltips: {
+      mode: 'label',
+      callbacks: {
+        label: tooltipItem => {
+          if (Number.isNaN(tooltipItem.yLabel)) {
+            return ' ' + i18nMessages.unknown;
+          } else {
+            return ' ' + (new Number(tooltipItem.yLabel)).toLocaleString();
+          }
+        }
       }
     },
-    multiTooltipTemplate: '<%= formatNumber(value) %>',
-    scaleLabel: '<%= formatNumber(value) %>',
-    tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
+    legendCallback: chart => {
+      return templates.linearLegend(chart.data.datasets);
+    }
+
+    // animation: true,
+    // animationEasing: 'easeInOutQuart',
+    // animationSteps: 30,
+    // labelsFilter: (value, index, labels) => {
+    //   if (labels.length >= 60) {
+    //     return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
+    //   } else {
+    //     return false;
+    //   }
+    // },
+    // multiTooltipTemplate: '<%= formatNumber(value) %>',
+    // scaleLabel: '<%= formatNumber(value) %>',
+    // tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
   },
-  linearCharts: ['Line', 'Bar', 'Radar'],
+  linearCharts: ['line', 'bar', 'radar'],
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
   platformSelector: '#platform-select',
