@@ -569,6 +569,11 @@ class Pv {
       document.cookie = `TsIntuition_expiry=${expiryUnix}; expires=${expiryGMT}; path=/`;
       location.reload();
     });
+
+    $('.permalink').on('click', e => {
+      this.specialRange = null;
+      this.daterangepicker.updateElement();
+    });
   }
 
   /**

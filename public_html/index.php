@@ -101,6 +101,12 @@
           <canvas class="aqs-chart"></canvas>
         </div>
         <div class="message-container col-lg-12"></div>
+        <span class="pull-right">
+          <label>
+            <input type="checkbox">
+            Logarithmic scale
+          </label>
+        </span>
         <!-- Legend -->
         <div class="col-lg-12 clearfix" id="chart-legend"></div>
         <!-- Other links -->
@@ -108,6 +114,9 @@
           <a class="js-test-change-chart" data-target="#chart-type-modal" data-toggle="modal" href="#"><?php echo $I18N->msg( 'change-chart' ); ?></a>
           &bullet;
           <a class="js-test-settings" data-target="#settings-modal" data-toggle="modal" href="#"><?php echo $I18N->msg( 'settings' ); ?></a>
+          &bullet;
+          <a class="permalink" href="#"><span class="glyphicon glyphicon-link"></span>
+          Permalink</a>
           &bullet;
           <?php $csvlink = "<a class='download-csv' href='#'>" . $I18N->msg( 'csv' ) . "</a>"; ?>
           <?php echo $I18N->msg( 'download', array( 'variables' => array( $csvlink ) ) ); ?>

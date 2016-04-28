@@ -20,7 +20,7 @@ const templates = {
       const dataset = datasets[0];
       return `<div class="linear-legend--totals">
         <strong>${i18nMessages.totals}:</strong>
-        ${formatNumber(dataset.sum)} (${formatNumber(Math.round(dataset.sum / numDaysInRange()))}/${i18nMessages.day})
+        ${formatNumber(dataset.sum)} (${formatNumber(dataset.average)}/${i18nMessages.day})
         &bullet;
         <a href="${getLangviewsURL(dataset.label)}" target="_blank">All languages</a>
         &bullet;
@@ -46,7 +46,7 @@ const templates = {
             <a href="${getPageURL(datasets[i].label)}" target="_blank">${datasets[i].label}</a>
           </div>
           <div class="linear-legend--counts">
-            ${formatNumber(datasets[i].sum)} (${formatNumber(Math.round(datasets[i].sum / numDaysInRange()))}/${i18nMessages.day})
+            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${i18nMessages.day})
           </div>
           <div class="linear-legend--links">
             <a href="${getLangviewsURL(datasets[i].label)}" target="_blank">All languages</a>

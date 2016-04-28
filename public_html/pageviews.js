@@ -18,7 +18,8 @@ var config = {
           pointBackgroundColor: '#fff',
           pointBorderColor: pv.rgba(color, 0.8),
           pointHoverBackgroundColor: color,
-          pointHoverBorderColor: 'rgba(220,220,220,1)'
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     },
@@ -147,6 +148,7 @@ var config = {
   linearCharts: ['line', 'bar', 'radar'],
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
+  platformSelector: '#platform-select',
   projectInput: '.aqs-project-input',
   specialRanges: {
     'last-week': [moment().subtract(1, 'week').startOf('week'), moment().subtract(1, 'week').endOf('week')],
@@ -169,6 +171,8 @@ module.exports = config;
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -465,28 +469,38 @@ var PageViews = function (_Pv) {
   }, {
     key: 'getLinearData',
     value: function getLinearData(data, article, index) {
+      var _Math;
+
       var values = data.items.map(function (elem) {
         return elem.views;
       }),
+          sum = values.reduce(function (a, b) {
+        return a + b;
+      }),
+          average = Math.round(sum / values.length),
+          max = (_Math = Math).max.apply(_Math, _toConsumableArray(values)),
           color = config.colors[index % 10];
 
       return Object.assign({
         label: article.descore(),
         data: values,
-        sum: values.reduce(function (a, b) {
-          return a + b;
-        })
+        sum: sum,
+        average: average,
+        max: max
       }, config.chartConfig[this.chartType].dataset(color));
     }
 
     /**
      * Get all user-inputted parameters except the pages
+     * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
      * @return {Object} project, platform, agent, etc.
      */
 
   }, {
     key: 'getParams',
     value: function getParams() {
+      var specialRange = arguments.length <= 0 || arguments[0] === undefined ? true : arguments[0];
+
       var params = {
         project: $(config.projectInput).val(),
         platform: $(config.platformSelector).val(),
@@ -498,13 +512,20 @@ var PageViews = function (_Pv) {
        * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
        *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
        */
-      if (this.specialRange) {
+      if (this.specialRange && specialRange) {
         params.range = this.specialRange.range;
       } else {
         params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
         params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
       }
 
+      return params;
+    }
+  }, {
+    key: 'getPermaLink',
+    value: function getPermaLink() {
+      var params = this.getParams(false);
+      delete params.range;
       return params;
     }
 
@@ -695,11 +716,14 @@ var PageViews = function (_Pv) {
   }, {
     key: 'pushParams',
     value: function pushParams() {
-      var pages = $(config.articleSelector).select2('val') || [];
+      var pages = $(config.articleSelector).select2('val') || [],
+          escapedPages = pages.join('|').replace(/[&%]/g, escape);
 
       if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, document.title, '#' + $.param(this.getParams()) + '&pages=' + pages.join('|').replace(/[&%]/g, escape));
+        window.history.replaceState({}, document.title, '#' + $.param(this.getParams()) + '&pages=' + escapedPages);
       }
+
+      $('.permalink').prop('href', '#' + $.param(this.getPermaLink()) + '&pages=' + escapedPages);
     }
 
     /**
@@ -728,6 +752,7 @@ var PageViews = function (_Pv) {
   }, {
     key: 'resetView',
     value: function resetView() {
+      this.destroyChart();
       $('.chart-container').html('');
       $('.chart-container').removeClass('loading');
       $('#chart-legend').html('');
@@ -1098,7 +1123,7 @@ var PageViews = function (_Pv) {
       var promises = [];
 
       /**
-       * Asynchronously collect the data from Analytics Query Service API,
+       * Asynchronously collect the data from RESTBase API,
        * process it to Chart.js format and initialize the chart.
        */
       articles.forEach(function (article, index) {
@@ -1139,8 +1164,10 @@ var PageViews = function (_Pv) {
               $('.chart-container').html('');
               $('.chart-container').removeClass('loading');
             }
-          } else {
+          } else if (data.responseJSON.detail) {
             errors.push(data.responseJSON.detail[0]);
+          } else {
+            errors.push(data.responseJSON.title);
           }
         });
       });
@@ -1166,9 +1193,24 @@ var PageViews = function (_Pv) {
         });
 
         $('.chart-container').removeClass('loading');
-        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts
-        // Object.assign(Chart.defaults.global, config.globalChartOpts);
-        );
+
+        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts);
+        // if (logarithmic) {
+        //   options.scales = {
+        //     yAxes: [{
+        //       type: 'logarithmic',
+        //       ticks: {
+        //         autoSkip: true,
+        //         callback: value => value,
+        //         userCallback: (label, index) => {
+        //           return index % 3 === 0 ? label : '';
+        //         },
+        //         maxTicksLimit: 5
+        //       }
+        //     }]
+        //   };
+        // }
+
         var linearData = { labels: labels, datasets: sortedDatasets };
 
         $('.chart-container').html('');
@@ -1910,6 +1952,11 @@ var Pv = function () {
         var expiryUnix = Math.floor(Date.now() / 1000) + _this2.config.cookieExpiry * 24 * 60 * 60;
         document.cookie = 'TsIntuition_expiry=' + expiryUnix + '; expires=' + expiryGMT + '; path=/';
         location.reload();
+      });
+
+      $('.permalink').on('click', function (e) {
+        _this2.specialRange = null;
+        _this2.daterangepicker.updateElement();
       });
     }
 
@@ -2936,7 +2983,7 @@ var templates = {
     var markup = '';
     if (datasets.length === 1) {
       var dataset = datasets[0];
-      return '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(dataset.sum) + ' (' + formatNumber(Math.round(dataset.sum / numDaysInRange())) + '/' + i18nMessages.day + ')\n        &bullet;\n        <a href="' + getLangviewsURL(dataset.label) + '" target="_blank">All languages</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=history" target="_blank">History</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=info" target="_blank">Info</a>\n      </div>';
+      return '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(dataset.sum) + ' (' + formatNumber(dataset.average) + '/' + i18nMessages.day + ')\n        &bullet;\n        <a href="' + getLangviewsURL(dataset.label) + '" target="_blank">All languages</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=history" target="_blank">History</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=info" target="_blank">Info</a>\n      </div>';
     }
 
     if (datasets.length > 1) {
@@ -2948,7 +2995,7 @@ var templates = {
     markup += '<div class="linear-legends">';
 
     for (var i = 0; i < datasets.length; i++) {
-      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(Math.round(datasets[i].sum / numDaysInRange())) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(datasets[i].average) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
     }
     return markup += '</div>';
   },

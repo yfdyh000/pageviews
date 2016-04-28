@@ -26,7 +26,8 @@ const config = {
           pointBackgroundColor: '#fff',
           pointBorderColor: pv.rgba(color, 0.8),
           pointHoverBackgroundColor: color,
-          pointHoverBorderColor: 'rgba(220,220,220,1)'
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     },

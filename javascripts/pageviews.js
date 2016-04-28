@@ -248,13 +248,18 @@ class PageViews extends Pv {
    */
   getLinearData(data, article, index) {
     const values = data.items.map(elem => elem.views),
+      sum = values.reduce((a, b) => a + b),
+      average = Math.round(sum / values.length),
+      max = Math.max(...values),
       color = config.colors[index % 10];
 
     return Object.assign(
       {
         label: article.descore(),
         data: values,
-        sum: values.reduce((a, b) => a + b)
+        sum,
+        average,
+        max
       },
       config.chartConfig[this.chartType].dataset(color)
     );
@@ -272,9 +277,10 @@ class PageViews extends Pv {
 
   /**
    * Get all user-inputted parameters except the pages
+   * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
    * @return {Object} project, platform, agent, etc.
    */
-  getParams() {
+  getParams(specialRange = true) {
     let params = {
       project: $(config.projectInput).val(),
       platform: $(config.platformSelector).val(),
@@ -286,13 +292,19 @@ class PageViews extends Pv {
      * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
      *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
      */
-    if (this.specialRange) {
+    if (this.specialRange && specialRange) {
       params.range = this.specialRange.range;
     } else {
       params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
       params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
     }
 
+    return params;
+  }
+
+  getPermaLink() {
+    let params = this.getParams(false);
+    delete params.range;
     return params;
   }
 
@@ -511,6 +523,7 @@ class PageViews extends Pv {
    * @returns {null} nothing
    */
   resetView() {
+    this.destroyChart();
     $('.chart-container').html('');
     $('.chart-container').removeClass('loading');
     $('#chart-legend').html('');
@@ -853,7 +866,7 @@ class PageViews extends Pv {
     let promises = [];
 
     /**
-     * Asynchronously collect the data from Analytics Query Service API,
+     * Asynchronously collect the data from RESTBase API,
      * process it to Chart.js format and initialize the chart.
      */
     articles.forEach((article, index) => {
@@ -898,8 +911,10 @@ class PageViews extends Pv {
             $('.chart-container').html('');
             $('.chart-container').removeClass('loading');
           }
-        } else {
+        } else if (data.responseJSON.detail) {
           errors.push(data.responseJSON.detail[0]);
+        } else {
+          errors.push(data.responseJSON.title);
         }
       });
     });
@@ -926,11 +941,27 @@ class PageViews extends Pv {
       });
 
       $('.chart-container').removeClass('loading');
+
       const options = Object.assign({},
         config.chartConfig[this.chartType].opts,
         config.globalChartOpts
-        // Object.assign(Chart.defaults.global, config.globalChartOpts);
       );
+      // if (logarithmic) {
+      //   options.scales = {
+      //     yAxes: [{
+      //       type: 'logarithmic',
+      //       ticks: {
+      //         autoSkip: true,
+      //         callback: value => value,
+      //         userCallback: (label, index) => {
+      //           return index % 3 === 0 ? label : '';
+      //         },
+      //         maxTicksLimit: 5
+      //       }
+      //     }]
+      //   };
+      // }
+
       const linearData = {labels: labels, datasets: sortedDatasets};
 
       $('.chart-container').html('');
