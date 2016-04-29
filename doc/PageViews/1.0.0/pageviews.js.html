@@ -26,13 +26,13 @@
     
     <section>
         <article>
-            <pre class="prettyprint source linenums"><code>/*
- * Pageviews Analysis tool
- *
- * Original code forked from https://gist.github.com/marcelrf/49738d14116fd547fe6d courtesy of marcelrf
- *
- * Copyright 2016 MusikAnimal
- * Redistributed under the MIT License: https://opensource.org/licenses/MIT
+            <pre class="prettyprint source linenums"><code>/**
+ * Pageviews Analysis
+ * @file Main file for Pageviews application.
+ *   [Original code](https://gist.github.com/marcelrf/49738d14116fd547fe6d) courtesy of marcelrf
+ * @author MusikAnimal, Kaldari, Marcelrf
+ * @copyright 2016 MusikAnimal
+ * @license MIT License: https://opensource.org/licenses/MIT
  */
 
 const config = require('./config');
@@ -68,17 +68,8 @@ class PageViews extends Pv {
     window.formatNumber = this.formatNumber.bind(this);
     window.getPageURL = this.getPageURL.bind(this);
     window.getLangviewsURL = this.getLangviewsURL.bind(this);
-    window.getExpandedPageURL = this.getExpandedPageURL.bind(this);
     window.numDaysInRange = this.numDaysInRange.bind(this);
-    window.isMultilangProject = this.isMultilangProject.bind(this);
-  }
 
-  /**
-   * Initialize the application.
-   * Called in `pv.js` after translations have loaded
-   * @return {null} Nothing
-   */
-  initialize() {
     this.setupProjectInput();
     this.setupDateRangeSelector();
     this.setupArticleSelector();
@@ -86,6 +77,16 @@ class PageViews extends Pv {
     this.setupSelect2Colors();
     this.popParams();
     this.setupListeners();
+
+    if (location.host !== 'localhost') {
+      /** simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :) */
+      $.ajax({
+        url: `//tools.wmflabs.org/musikanimal/api/pv_uses/${this.project}`,
+        method: 'PATCH'
+      });
+
+      this.splash();
+    }
   }
 
   /**
@@ -115,7 +116,8 @@ class PageViews extends Pv {
       dataRows[index] = [date];
     });
 
-    chartData.forEach(page => {
+    // FIXME: no longer using global
+    this.chartObj.data.datasets.forEach(page => {
       // Build an array of page titles for use in the CSV header
       let pageTitle = '"' + page.label.replace(/"/g, '""') + '"';
       titles.push(pageTitle);
@@ -146,7 +148,8 @@ class PageViews extends Pv {
   exportJSON() {
     let data = [];
 
-    chartData.forEach((page, index) => {
+    // FIXME: no longer using global
+    this.chartObj.data.datasets.forEach((page, index) => {
       let entry = {
         page: page.label.replace(/"/g, '\"').replace(/'/g, "\'"),
         color: page.strokeColor,
@@ -260,7 +263,7 @@ class PageViews extends Pv {
    * @returns {String} URL
    */
   getLangviewsURL(page) {
-    return `/langviews?${$.param(this.getParams())}&amp;page=${page.replace(/[&amp;%]/g, escape).score()}`;
+    return `/langviews?${$.param(this.getParams())}&amp;page=${page.replace(/[&amp;%]/g, escape)}`;
   }
 
   /**
@@ -274,22 +277,51 @@ class PageViews extends Pv {
    */
   getLinearData(data, article, index) {
     const values = data.items.map(elem => elem.views),
+      sum = values.reduce((a, b) => a + b),
+      average = Math.round(sum / values.length),
+      max = Math.max(...values),
       color = config.colors[index % 10];
 
     return Object.assign(
       {
         label: article.descore(),
         data: values,
-        sum: values.reduce((a, b) => a + b)
+        sum,
+        average,
+        max
       },
       config.chartConfig[this.chartType].dataset(color)
     );
   }
 
   /**
-   * Get params needed to create a permanent link of visible data
-   * @return {Object} hash of params
+   * Get all user-inputted parameters except the pages
+   * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
+   * @return {Object} project, platform, agent, etc.
    */
+  getParams(specialRange = true) {
+    let params = {
+      project: $(config.projectInput).val(),
+      platform: $(config.platformSelector).val(),
+      agent: $(config.agentSelector).val(),
+      logarithmic: $(config.logarithmicCheckbox).is(':checked') ? 1 : 0
+    };
+
+    /**
+     * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
+     * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
+     *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
+     */
+    if (this.specialRange &amp;&amp; specialRange) {
+      params.range = this.specialRange.range;
+    } else {
+      params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
+      params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
+    }
+
+    return params;
+  }
+
   getPermaLink() {
     let params = this.getParams(false);
     delete params.range;
@@ -346,30 +378,22 @@ class PageViews extends Pv {
   }
 
   /**
-   * Simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :)
-   * @return {null} nothing
-   */
-  patchUsage() {
-    if (location.host !== 'localhost') {
-      $.ajax({
-        url: `//tools.wmflabs.org/musikanimal/api/pv_uses/${this.project}`,
-        method: 'PATCH'
-      });
-    }
-  }
-
-  /**
    * Parses the URL hash and sets all the inputs accordingly
    * Should only be called on initial page load, until we decide to support pop states (probably never)
    * @returns {null} nothing
    */
   popParams() {
+    /** assume query params are supposed to be hash params */
+    if (document.location.search &amp;&amp; !document.location.hash) {
+      return document.location.href = document.location.href.replace('?', '#');
+    } else if (document.location.search) {
+      return document.location.href = document.location.href.replace(/\?.*/, '');
+    }
+
     let startDate, endDate, params = this.parseHashParams();
 
     $(config.projectInput).val(params.project || config.defaults.project);
     if (this.validateProject()) return;
-
-    this.patchUsage();
 
     /**
      * Check if we're using a valid range, and if so ignore any start/end dates.
@@ -377,18 +401,18 @@ class PageViews extends Pv {
      */
     if (params.range) {
       if (!this.setSpecialRange(params.range)) {
-        this.addSiteNotice('danger', $.i18n('param-error-3'), $.i18n('invalid-params'), true);
+        this.addSiteNotice('danger', i18nMessages.paramError3, i18nMessages.invalidParams, true);
         this.setSpecialRange(config.defaults.dateRange);
       }
     } else if (params.start) {
       startDate = moment(params.start || moment().subtract(config.defaults.daysAgo, 'days'));
       endDate = moment(params.end || Date.now());
       if (startDate &lt; moment('2015-08-01') || endDate &lt; moment('2015-08-01')) {
-        this.addSiteNotice('danger', $.i18n('param-error-1'), $.i18n('invalid-params'), true);
+        this.addSiteNotice('danger', i18nMessages.paramError1, i18nMessages.invalidParams, true);
         this.resetView();
         return;
       } else if (startDate > endDate) {
-        this.addSiteNotice('warning', $.i18n('param-error-2'), $.i18n('invalid-params'), true);
+        this.addSiteNotice('warning', i18nMessages.paramError2, i18nMessages.invalidParams, true);
         this.resetView();
         return;
       }
@@ -400,7 +424,8 @@ class PageViews extends Pv {
     }
 
     $(config.platformSelector).val(params.platform || 'all-access');
-    $('#agent-select').val(params.agent || 'user');
+    $(config.agentSelector).val(params.agent || 'user');
+    $(config.logarithmicCheckbox).prop('checked', params.logarithmic === '1');
 
     this.resetArticleSelector();
 
@@ -467,33 +492,6 @@ class PageViews extends Pv {
   }
 
   /**
-   * Get all user-inputted parameters except the pages
-   * @param {boolean} [specialRange] whether or not to include the special range instead of start/end, if applicable
-   * @return {Object} project, platform, agent, etc.
-   */
-  getParams(specialRange = true) {
-    let params = {
-      project: $(config.projectInput).val(),
-      platform: $(config.platformSelector).val(),
-      agent: $('#agent-select').val()
-    };
-
-    /**
-     * Override start and end with custom range values, if configured (set by URL params or setupDateRangeSelector)
-     * Valid values are those defined in config.specialRanges, constructed like `{range: 'last-month'}`,
-     *   or a relative range like `{range: 'latest-N'}` where N is the number of days.
-     */
-    if (this.specialRange &amp;&amp; specialRange) {
-      params.range = this.specialRange.range;
-    } else {
-      params.start = this.daterangepicker.startDate.format('YYYY-MM-DD');
-      params.end = this.daterangepicker.endDate.format('YYYY-MM-DD');
-    }
-
-    return params;
-  }
-
-  /**
    * Replaces history state with new URL hash representing current user input
    * Called whenever we go to update the chart
    * @returns {null} nothing
@@ -513,7 +511,7 @@ class PageViews extends Pv {
 
   /**
    * Removes all article selector related stuff then adds it back
-   * Also calls updateChart
+   * Also calls processPages
    * @returns {null} nothing
    */
   resetArticleSelector() {
@@ -531,6 +529,7 @@ class PageViews extends Pv {
    * @returns {null} nothing
    */
   resetView() {
+    this.destroyChart();
     $('.chart-container').html('');
     $('.chart-container').removeClass('loading');
     $('#chart-legend').html('');
@@ -580,7 +579,7 @@ class PageViews extends Pv {
       this.resetArticleSelector();
     }
 
-    this.updateChart(true);
+    this.processPages(true);
   }
 
   /**
@@ -611,13 +610,13 @@ class PageViews extends Pv {
     let params = {
       ajax: this.getArticleSelectorAjax(),
       tags: this.autocomplete === 'no_autocomplete',
-      placeholder: $.i18n('article-placeholder'),
+      placeholder: i18nMessages.articlePlaceholder,
       maximumSelectionLength: 10,
       minimumInputLength: 1
     };
 
     articleSelector.select2(params);
-    articleSelector.on('change', this.updateChart.bind(this));
+    articleSelector.on('change', this.processPages.bind(this));
   }
 
   /**
@@ -647,19 +646,19 @@ class PageViews extends Pv {
 
   /**
    * Attempt to fine-tune the pointer detection spacing based on how cluttered the chart is
-   * @returns {null} nothing
+   * @returns {Number} radius
    */
   setChartPointDetectionRadius() {
-    if (this.chartType !== 'Line') return;
+    if (this.chartType !== 'line') return;
 
     if (this.numDaysInRange() > 50) {
-      Chart.defaults.Line.pointHitDetectionRadius = 3;
+      Chart.defaults.global.elements.point.hitRadius = 3;
     } else if (this.numDaysInRange() > 30) {
-      Chart.defaults.Line.pointHitDetectionRadius = 5;
+      Chart.defaults.global.elements.point.hitRadius = 5;
     } else if (this.numDaysInRange() > 20) {
-      Chart.defaults.Line.pointHitDetectionRadius = 10;
+      Chart.defaults.global.elements.point.hitRadius = 10;
     } else {
-      Chart.defaults.Line.pointHitDetectionRadius = 20;
+      Chart.defaults.global.elements.point.hitRadius = 30;
     }
   }
 
@@ -673,37 +672,37 @@ class PageViews extends Pv {
     /** transform config.specialRanges to have i18n as keys */
     let ranges = {};
     Object.keys(config.specialRanges).forEach(key => {
-      ranges[$.i18n(key)] = config.specialRanges[key];
+      ranges[i18nMessages[key]] = config.specialRanges[key];
     });
 
     dateRangeSelector.daterangepicker({
       locale: {
         format: this.dateFormat,
-        applyLabel: $.i18n('apply'),
-        cancelLabel: $.i18n('cancel'),
-        customRangeLabel: $.i18n('custom-range'),
+        applyLabel: i18nMessages.apply,
+        cancelLabel: i18nMessages.cancel,
+        customRangeLabel: i18nMessages.customRange,
         daysOfWeek: [
-          $.i18n('su'),
-          $.i18n('mo'),
-          $.i18n('tu'),
-          $.i18n('we'),
-          $.i18n('th'),
-          $.i18n('fr'),
-          $.i18n('sa')
+          i18nMessages.su,
+          i18nMessages.mo,
+          i18nMessages.tu,
+          i18nMessages.we,
+          i18nMessages.th,
+          i18nMessages.fr,
+          i18nMessages.sa
         ],
         monthNames: [
-          $.i18n('january'),
-          $.i18n('february'),
-          $.i18n('march'),
-          $.i18n('april'),
-          $.i18n('may'),
-          $.i18n('june'),
-          $.i18n('july'),
-          $.i18n('august'),
-          $.i18n('september'),
-          $.i18n('october'),
-          $.i18n('november'),
-          $.i18n('december')
+          i18nMessages.january,
+          i18nMessages.february,
+          i18nMessages.march,
+          i18nMessages.april,
+          i18nMessages.may,
+          i18nMessages.june,
+          i18nMessages.july,
+          i18nMessages.august,
+          i18nMessages.september,
+          i18nMessages.october,
+          i18nMessages.november,
+          i18nMessages.december
         ]
       },
       startDate: moment().subtract(config.defaults.daysAgo, 'days'),
@@ -716,7 +715,7 @@ class PageViews extends Pv {
     $('.daterangepicker').append(
       $('&lt;div>')
         .addClass('daterange-notice')
-        .html($.i18n('date-notice', document.title, "&lt;a href='http://stats.grok.se' target='_blank'>stats.grok.se&lt;/a>"))
+        .html(i18nMessages.dateNotice)
     );
 
     /**
@@ -742,7 +741,7 @@ class PageViews extends Pv {
     });
 
     dateRangeSelector.on('apply.daterangepicker', (e, action) => {
-      if (action.chosenLabel === $.i18n('custom-range')) {
+      if (action.chosenLabel === i18nMessages.customRange) {
         this.specialRange = null;
 
         /** force events to re-fire since apply.daterangepicker occurs before 'change' event */
@@ -752,7 +751,7 @@ class PageViews extends Pv {
 
     dateRangeSelector.on('change', e => {
       this.setChartPointDetectionRadius();
-      this.updateChart();
+      this.processPages();
 
       /** clear out specialRange if it doesn't match our input */
       if (this.specialRange &amp;&amp; this.specialRange.value !== e.target.value) {
@@ -770,14 +769,16 @@ class PageViews extends Pv {
 
     $('.download-csv').on('click', this.exportCSV.bind(this));
     $('.download-json').on('click', this.exportJSON.bind(this));
-    $('#platform-select, #agent-select').on('change', this.updateChart.bind(this));
+    $('#platform-select, #agent-select').on('change', this.processPages.bind(this));
 
     /** changing of chart types */
     $('.modal-chart-type a').on('click', e => {
       this.chartType = $(e.currentTarget).data('type');
       this.setLocalStorage('pageviews-chart-preference', this.chartType);
-      this.updateChart();
+      this.processPages();
     });
+
+    $(config.logarithmicCheckbox).on('click', this.processPages.bind(this));
 
     // window.onpopstate = popParams();
   }
@@ -835,14 +836,11 @@ class PageViews extends Pv {
 
   /**
    * The mother of all functions, where all the chart logic lives
-   * Really needs to be broken out into several functions
    *
    * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
    * @returns {null} - nothin
    */
-  updateChart(force) {
-    let articles = $(config.articleSelector).select2('val') || [];
-
+  processPages(force) {
     this.pushParams();
 
     /** prevent duplicate querying due to conflicting listeners */
@@ -850,7 +848,16 @@ class PageViews extends Pv {
       return;
     }
 
-    if (!articles.length) {
+    /** @type {Object} everything we need to keep track of for the promises */
+    let xhrData = {
+      articles: $(config.articleSelector).select2('val') || [],
+      labels: [], // Labels (dates) for the x-axis.
+      datasets: [], // Data for each article timeseries
+      errors: [], // Queue up errors to show after all requests have been made
+      promises: []
+    };
+
+    if (!xhrData.articles.length) {
       this.resetView();
       return;
     }
@@ -867,107 +874,156 @@ class PageViews extends Pv {
     $('.message-container').html('');
     $('.chart-container').addClass('loading');
 
-    let labels = []; // Labels (dates) for the x-axis.
-    let datasets = []; // Data for each article timeseries
-    let errors = []; // Queue up errors to show after all requests have been made
-    let promises = [];
-
     /**
-     * Asynchronously collect the data from Analytics Query Service API,
+     * Asynchronously collect the data from RESTBase API,
      * process it to Chart.js format and initialize the chart.
      */
-    articles.forEach((article, index) => {
+    xhrData.articles.forEach((article, index) => {
       const uriEncodedArticle = encodeURIComponent(article);
       /** @type {String} Url to query the API. */
       const url = (
         `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/${this.project}` +
-        `/${$(config.platformSelector).val()}/${$('#agent-select').val()}/${uriEncodedArticle}/daily` +
+        `/${$(config.platformSelector).val()}/${$(config.agentSelector).val()}/${uriEncodedArticle}/daily` +
         `/${startDate.format(config.timestampFormat)}/${endDate.format(config.timestampFormat)}`
       );
       const promise = $.ajax({
         url: url,
         dataType: 'json'
       });
-      promises.push(promise);
+      xhrData.promises.push(promise);
 
-      promise.success(data => {
+      promise.success(successData => {
         // FIXME: these needs fixing too, sometimes doesn't show zero
-        this.fillInZeros(data, startDate, endDate);
+        this.fillInZeros(successData, startDate, endDate);
 
         /** Build the article's dataset. */
         if (config.linearCharts.includes(this.chartType)) {
-          datasets.push(this.getLinearData(data, article, index));
+          xhrData.datasets.push(this.getLinearData(successData, article, index));
         } else {
-          datasets.push(this.getCircularData(data, article, index));
+          xhrData.datasets.push(this.getCircularData(successData, article, index));
         }
 
         /** fetch the labels for the x-axis on success if we haven't already */
-        if (data.items &amp;&amp; !labels.length) {
-          labels = data.items.map(elem => {
+        if (successData.items &amp;&amp; !xhrData.labels.length) {
+          xhrData.labels = successData.items.map(elem => {
             return moment(elem.timestamp, config.timestampFormat).format(this.dateFormat);
           });
         }
       }).fail(data => {
         if (data.status === 404) {
           this.writeMessage(
-            `&lt;a href='${this.getPageURL(article)}'>${article.descore()}&lt;/a> - ${$.i18n('api-error-no-data')}`
+            `&lt;a href='${this.getPageURL(article)}'>${article.descore()}&lt;/a> - ${i18nMessages.apiErrorNoData}`
           );
-          articles = articles.filter(el => el !== article);
+          xhrData.articles = xhrData.articles.filter(el => el !== article);
 
-          if (!articles.length) {
+          if (!xhrData.articles.length) {
             $('.chart-container').html('');
             $('.chart-container').removeClass('loading');
           }
+        } else if (data.responseJSON.detail) {
+          xhrData.errors.push(data.responseJSON.detail[0]);
         } else {
-          errors.push(data.responseJSON.detail[0]);
+          xhrData.errors.push(data.responseJSON.title);
         }
       });
     });
 
-    $.when(...promises).always(data => {
-      $('#chart-legend').html(''); // clear old chart legend
+    $.when(...xhrData.promises).always(this.updateChart.bind(this, xhrData));
+  }
 
-      if (errors.length &amp;&amp; errors.length === articles.length) {
-        /** something went wrong */
-        $('.chart-container').removeClass('loading');
-        const errorMessages = Array.from(new Set(errors)).map(error => `&lt;li>${error}&lt;/li>`).join('');
-        return this.writeMessage(
-          `${$.i18n('api-error')}&lt;ul>${errorMessages}&lt;/ul>&lt;br/>${$.i18n('api-error-contact')}`,
-          true
-        );
-      }
+  /**
+   * Update the chart with data provided by processArticles()
+   * @param  {Object} xhrData - data as constructed by processArticles()
+   * @return {null} Nothing
+   */
+  updateChart(xhrData) {
+    $('#chart-legend').html(''); // clear old chart legend
 
-      if (!articles.length) return;
-
-      /** preserve order of datasets due to asyn calls */
-      let sortedDatasets = new Array(articles.length);
-      datasets.forEach(dataset => {
-        sortedDatasets[articles.indexOf(dataset.label.score())] = dataset;
-      });
-
-      /** export built datasets to global scope Chart templates */
-      window.chartData = sortedDatasets;
-
+    if (xhrData.errors.length &amp;&amp; xhrData.errors.length === xhrData.articles.length) {
+      /** something went wrong */
       $('.chart-container').removeClass('loading');
-      const options = Object.assign({},
-        config.chartConfig[this.chartType].opts,
-        config.globalChartOpts
+      const errorMessages = Array.from(new Set(xhrData.errors)).map(error => `&lt;li>${error}&lt;/li>`).join('');
+      return this.writeMessage(
+        `${i18nMessages.apiError}&lt;ul>${errorMessages}&lt;/ul>&lt;br/>${i18nMessages.apiErrorContact}`,
+        true
       );
-      const linearData = {labels: labels, datasets: sortedDatasets};
+    }
 
-      $('.chart-container').html('');
-      $('.chart-container').append("&lt;canvas class='aqs-chart'>");
-      const context = $(config.chart)[0].getContext('2d');
+    if (!xhrData.articles.length) return;
 
-      if (config.linearCharts.includes(this.chartType)) {
-        this.chartObj = new Chart(context)[this.chartType](linearData, options);
-      } else {
-        this.chartObj = new Chart(context)[this.chartType](sortedDatasets, options);
-      }
-
-      $('#chart-legend').html(this.chartObj.generateLegend());
-      $('.data-links').show();
+    /** preserve order of datasets due to asyn calls */
+    let sortedDatasets = new Array(xhrData.articles.length);
+    xhrData.datasets.forEach(dataset => {
+      sortedDatasets[xhrData.articles.indexOf(dataset.label.score())] = dataset;
     });
+
+    $('.chart-container').removeClass('loading');
+
+    const tooltipOpts = ['line', 'bar'].includes(this.chartType) ? {
+      tooltips: {
+        mode: 'label',
+        callbacks: {
+          label: tooltipItem => {
+            if (Number.isNaN(tooltipItem.yLabel)) {
+              return ' ' + i18nMessages.unknown;
+            } else {
+              return ' ' + formatNumber(tooltipItem.yLabel);
+            }
+          }
+        }
+      }
+    } : {};
+
+    const options = Object.assign({},
+      config.chartConfig[this.chartType].opts,
+      config.globalChartOpts,
+      tooltipOpts
+    );
+    if ($(config.logarithmicCheckbox).is(':checked')) {
+      options.scales = {
+        yAxes: [{
+          type: 'logarithmic',
+          ticks: {
+            autoSkip: true,
+            callback: value => value,
+            userCallback: (label, index) => {
+              return index % 3 === 0 ? label : '';
+            },
+            maxTicksLimit: 5
+          }
+        }]
+      };
+    }
+
+    const linearData = {labels: xhrData.labels, datasets: sortedDatasets};
+
+    $('.chart-container').html('');
+    $('.chart-container').append("&lt;canvas class='aqs-chart'>");
+    const context = $(config.chart)[0].getContext('2d');
+
+    if (config.linearCharts.includes(this.chartType)) {
+      this.chartObj = new Chart(context, {
+        type: this.chartType,
+        data: linearData,
+        options
+      });
+    } else {
+      this.chartObj = new Chart(context, {
+        type: this.chartType,
+        data: {
+          labels: sortedDatasets.map(d => d.label),
+          datasets: [{
+            data: sortedDatasets.map(d => d.value),
+            backgroundColor: sortedDatasets.map(d => d.backgroundColor),
+            hoverBackgroundColor: sortedDatasets.map(d => d.hoverBackgroundColor)
+          }]
+        },
+        options
+      });
+    }
+
+    $('#chart-legend').html(this.chartObj.generateLegend());
+    $('.data-links').show();
   }
 
   /**
@@ -989,7 +1045,7 @@ class PageViews extends Pv {
     } else {
       this.resetView();
       this.writeMessage(
-        $.i18n('invalid-project', `&lt;a href='//${project}'>${project}&lt;/a>`),
+        i18nMessages.invalidProject.i18nArg(`&lt;a href='//${project}'>${project}&lt;/a>`),
         true
       );
       $('.select2-selection--multiple').addClass('disabled');
@@ -999,15 +1055,6 @@ class PageViews extends Pv {
 }
 
 $(document).ready(() => {
-  /** assume query params are supposed to be hash params */
-  if (document.location.search &amp;&amp; !document.location.hash) {
-    return document.location.href = document.location.href.replace('?', '#');
-  } else if (document.location.search) {
-    return document.location.href = document.location.href.replace(/\?.*/, '');
-  }
-
-  $.extend(Chart.defaults.global, {animation: false, responsive: true});
-
   new PageViews();
 });
 </code></pre>
@@ -1020,13 +1067,13 @@ $(document).ready(() => {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#siteMap">siteMap</a></li><li><a href="global.html#templates">templates</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#templates">templates</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Sun May 08 2016 17:35:19 GMT-0400 (EDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Fri Apr 29 2016 03:03:01 GMT-0400 (EDT)
 </footer>
 
 <script> prettyPrint(); </script>

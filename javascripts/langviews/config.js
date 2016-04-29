@@ -4,11 +4,11 @@
  * @copyright 2016 MusikAnimal
  */
 
-/**
- * Configuration for Langviews application.
- * This includes selectors, defaults, and other constants specific to Langviews
- * @type {Object}
- */
+ /**
+  * Configuration for Langviews application.
+  * This includes selectors, defaults, and other constants specific to Langviews
+  * @type {Object}
+  */
 const config = {
   agentSelector: '#agent_select',
   articleInput: '#article_input',

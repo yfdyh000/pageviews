@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Pageviews Analysis",
   "repository": "github.com/MusikAnimal/pageviews",
-  "author": "MusikAnimal, Marcel Ruiz Forns, Kaldari",
+  "author": "MusikAnimal, Kaldari, Marcel Ruiz Forns",
   "license": "MIT",
   "devDependencies": {
     "babelify": "7.2.0",

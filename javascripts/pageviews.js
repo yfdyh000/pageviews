@@ -1,7 +1,8 @@
 /**
- * Pageviews Analysis tool
- * Original code forked from https://gist.github.com/marcelrf/49738d14116fd547fe6d courtesy of marcelrf
- * @file Main file for Pageviews app
+ * Pageviews Analysis
+ * @file Main file for Pageviews application.
+ *   [Original code](https://gist.github.com/marcelrf/49738d14116fd547fe6d) courtesy of marcelrf
+ * @author MusikAnimal, Kaldari, Marcelrf
  * @copyright 2016 MusikAnimal
  * @license MIT License: https://opensource.org/licenses/MIT
  */
@@ -831,7 +832,6 @@ class PageViews extends Pv {
 
   /**
    * The mother of all functions, where all the chart logic lives
-   * Really needs to be broken out into several functions
    *
    * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
    * @returns {null} - nothin
@@ -927,6 +927,11 @@ class PageViews extends Pv {
     $.when(...xhrData.promises).always(this.updateChart.bind(this, xhrData));
   }
 
+  /**
+   * Update the chart with data provided by processArticles()
+   * @param  {Object} xhrData - data as constructed by processArticles()
+   * @return {null} Nothing
+   */
   updateChart(xhrData) {
     $('#chart-legend').html(''); // clear old chart legend
 

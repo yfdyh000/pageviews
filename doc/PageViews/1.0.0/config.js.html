@@ -41,85 +41,93 @@ const pv = require('./shared/pv');
  * @type {Object}
  */
 const config = {
+  agentSelector: '#agent-select',
   articleSelector: '.aqs-article-selector',
   chart: '.aqs-chart',
   chartConfig: {
-    Line: {
-      opts: {
-        bezierCurve: false,
-        legendTemplate: templates.linearLegend
-      },
+    line: {
       dataset(color) {
         return {
-          fillColor: 'rgba(0,0,0,0)',
+          color,
+          backgroundColor: 'rgba(0,0,0,0)',
+          borderColor: color,
           pointColor: color,
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          pointStrokeColor: '#fff',
-          strokeColor: color
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     },
-    Bar: {
+    bar: {
+      dataset(color) {
+        return {
+          color,
+          backgroundColor: pv.rgba(color, 0.5),
+          borderColor: pv.rgba(color, 0.8),
+          borderWidth: 1,
+          hoverBackgroundColor: pv.rgba(color, 0.75),
+          hoverBorderColor: color
+        };
+      },
       opts: {
-        barDatasetSpacing: 0,
-        barValueSpacing: 0,
+        scales: {
+          xAxes: [{
+            barPercentage: 1.0,
+            categoryPercentage: 0.85
+          }]
+        }
+      }
+    },
+    pie: {
+      opts: {
+        legendTemplate: templates.circularLegend
+      },
+      dataset(color) {
+        return {
+          color: color,
+          backgroundColor: pv.rgba(color, 0.8),
+          hoverBackgroundColor: color
+        };
+      }
+    },
+    doughnut: {
+      opts: {
+        legendTemplate: templates.circularLegend
+      },
+      dataset(color) {
+        return {
+          color: color,
+          highlight: pv.rgba(color, 0.8)
+        };
+      }
+    },
+    polararea: {
+      opts: {
+        legendTemplate: templates.circularLegend
+      },
+      dataset(color) {
+        return {
+          color: color,
+          highlight: pv.rgba(color, 0.8)
+        };
+      }
+    },
+    radar: {
+      opts: {
         legendTemplate: templates.linearLegend
       },
       dataset(color) {
         return {
-          fillColor: pv.rgba(color, 0.5),
-          highlightFill: pv.rgba(color, 0.75),
-          highlightStroke: color,
-          strokeColor: pv.rgba(color, 0.8)
-        };
-      }
-    },
-    Pie: {
-      opts: {
-        legendTemplate: templates.circularLegend
-      },
-      dataset(color) {
-        return {
-          color: color,
-          highlight: pv.rgba(color, 0.8)
-        };
-      }
-    },
-    Doughnut: {
-      opts: {
-        legendTemplate: templates.circularLegend
-      },
-      dataset(color) {
-        return {
-          color: color,
-          highlight: pv.rgba(color, 0.8)
-        };
-      }
-    },
-    PolarArea: {
-      opts: {
-        legendTemplate: templates.circularLegend
-      },
-      dataset(color) {
-        return {
-          color: color,
-          highlight: pv.rgba(color, 0.8)
-        };
-      }
-    },
-    Radar: {
-      opts: {
-        legendTemplate: templates.linearLegend
-      },
-      dataset(color) {
-        return {
-          fillColor: pv.rgba(color, 0.1),
-          pointColor: color,
-          pointStrokeColor: '#fff',
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          strokeColor: color
+          color,
+          backgroundColor: pv.rgba(color, 0.1),
+          borderColor: color,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     }
@@ -139,21 +147,19 @@ const config = {
   },
   dateRangeSelector: '.aqs-date-range-selector',
   globalChartOpts: {
-    animation: true,
-    animationEasing: 'easeInOutQuart',
-    animationSteps: 30,
-    labelsFilter: (value, index, labels) => {
-      if (labels.length >= 60) {
-        return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
-      } else {
-        return false;
-      }
+    animation: {
+      duration: 500,
+      easing: 'easeInOutQuart'
     },
-    multiTooltipTemplate: '&lt;%= formatNumber(value) %>',
-    scaleLabel: '&lt;%= formatNumber(value) %>',
-    tooltipTemplate: '&lt;%if (label){%>&lt;%=label%>: &lt;%}%>&lt;%= formatNumber(value) %>'
+    legend: {
+      display: false
+    },
+    legendCallback: chart => {
+      return templates.linearLegend(chart.data.datasets);
+    }
   },
-  linearCharts: ['Line', 'Bar', 'Radar'],
+  linearCharts: ['line', 'bar', 'radar'],
+  logarithmicCheckbox: '.logarithmic-scale-option',
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
   platformSelector: '#platform-select',
@@ -180,13 +186,13 @@ module.exports = config;
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#siteMap">siteMap</a></li><li><a href="global.html#templates">templates</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#templates">templates</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Sun May 08 2016 17:35:19 GMT-0400 (EDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Fri Apr 29 2016 03:03:01 GMT-0400 (EDT)
 </footer>
 
 <script> prettyPrint(); </script>

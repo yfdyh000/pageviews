@@ -1,10 +1,10 @@
-const pv = require('./shared/pv');
-
 /**
  * @file Templates used by Chart.js
  * @author MusikAnimal
  * @copyright 2016 MusikAnimal
  */
+
+const pv = require('./shared/pv');
 
 /**
  * Templates used by Chart.js.
