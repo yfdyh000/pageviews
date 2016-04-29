@@ -159,13 +159,12 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-/*
+/**
  * Pageviews Analysis tool
- *
  * Original code forked from https://gist.github.com/marcelrf/49738d14116fd547fe6d courtesy of marcelrf
- *
- * Copyright 2016 MusikAnimal
- * Redistributed under the MIT License: https://opensource.org/licenses/MIT
+ * @file Main file for Pageviews app
+ * @copyright 2016 MusikAnimal
+ * @license MIT License: https://opensource.org/licenses/MIT
  */
 
 var config = require('./config');
@@ -174,6 +173,8 @@ var siteDomains = Object.keys(siteMap).map(function (key) {
   return siteMap[key];
 });
 var Pv = require('./shared/pv');
+
+/** Main PageViews class */
 
 var PageViews = function (_Pv) {
   _inherits(PageViews, _Pv);
@@ -709,7 +710,7 @@ var PageViews = function (_Pv) {
 
     /**
      * Removes all article selector related stuff then adds it back
-     * Also calls updateChart
+     * Also calls processPages
      * @returns {null} nothing
      */
 
@@ -791,7 +792,7 @@ var PageViews = function (_Pv) {
         this.resetArticleSelector();
       }
 
-      this.updateChart(true);
+      this.processPages(true);
     }
 
     /**
@@ -834,7 +835,7 @@ var PageViews = function (_Pv) {
       };
 
       articleSelector.select2(params);
-      articleSelector.on('change', this.updateChart.bind(this));
+      articleSelector.on('change', this.processPages.bind(this));
     }
 
     /**
@@ -959,7 +960,7 @@ var PageViews = function (_Pv) {
 
       dateRangeSelector.on('change', function (e) {
         _this7.setChartPointDetectionRadius();
-        _this7.updateChart();
+        _this7.processPages();
 
         /** clear out specialRange if it doesn't match our input */
         if (_this7.specialRange && _this7.specialRange.value !== e.target.value) {
@@ -982,16 +983,16 @@ var PageViews = function (_Pv) {
 
       $('.download-csv').on('click', this.exportCSV.bind(this));
       $('.download-json').on('click', this.exportJSON.bind(this));
-      $('#platform-select, #agent-select').on('change', this.updateChart.bind(this));
+      $('#platform-select, #agent-select').on('change', this.processPages.bind(this));
 
       /** changing of chart types */
       $('.modal-chart-type a').on('click', function (e) {
         _this8.chartType = $(e.currentTarget).data('type');
         _this8.setLocalStorage('pageviews-chart-preference', _this8.chartType);
-        _this8.updateChart();
+        _this8.processPages();
       });
 
-      $(config.logarithmicCheckbox).on('click', this.updateChart.bind(this));
+      $(config.logarithmicCheckbox).on('click', this.processPages.bind(this));
 
       // window.onpopstate = popParams();
     }
@@ -1069,12 +1070,10 @@ var PageViews = function (_Pv) {
      */
 
   }, {
-    key: 'updateChart',
-    value: function updateChart(force) {
+    key: 'processPages',
+    value: function processPages(force) {
       var _this11 = this,
           _$;
-
-      var articles = $(config.articleSelector).select2('val') || [];
 
       this.pushParams();
 
@@ -1083,7 +1082,16 @@ var PageViews = function (_Pv) {
         return;
       }
 
-      if (!articles.length) {
+      /** @type {Object} everything we need to keep track of for the promises */
+      var xhrData = {
+        articles: $(config.articleSelector).select2('val') || [],
+        labels: [], // Labels (dates) for the x-axis.
+        datasets: [], // Data for each article timeseries
+        errors: [], // Queue up errors to show after all requests have been made
+        promises: []
+      };
+
+      if (!xhrData.articles.length) {
         this.resetView();
         return;
       }
@@ -1100,16 +1108,11 @@ var PageViews = function (_Pv) {
       $('.message-container').html('');
       $('.chart-container').addClass('loading');
 
-      var labels = []; // Labels (dates) for the x-axis.
-      var datasets = []; // Data for each article timeseries
-      var errors = []; // Queue up errors to show after all requests have been made
-      var promises = [];
-
       /**
        * Asynchronously collect the data from RESTBase API,
        * process it to Chart.js format and initialize the chart.
        */
-      articles.forEach(function (article, index) {
+      xhrData.articles.forEach(function (article, index) {
         var uriEncodedArticle = encodeURIComponent(article);
         /** @type {String} Url to query the API. */
         var url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/' + _this11.project + ('/' + $(config.platformSelector).val() + '/' + $(config.agentSelector).val() + '/' + uriEncodedArticle + '/daily') + ('/' + startDate.format(config.timestampFormat) + '/' + endDate.format(config.timestampFormat));
@@ -1117,138 +1120,141 @@ var PageViews = function (_Pv) {
           url: url,
           dataType: 'json'
         });
-        promises.push(promise);
+        xhrData.promises.push(promise);
 
-        promise.success(function (data) {
+        promise.success(function (successData) {
           // FIXME: these needs fixing too, sometimes doesn't show zero
-          _this11.fillInZeros(data, startDate, endDate);
+          _this11.fillInZeros(successData, startDate, endDate);
 
           /** Build the article's dataset. */
           if (config.linearCharts.includes(_this11.chartType)) {
-            datasets.push(_this11.getLinearData(data, article, index));
+            xhrData.datasets.push(_this11.getLinearData(successData, article, index));
           } else {
-            datasets.push(_this11.getCircularData(data, article, index));
+            xhrData.datasets.push(_this11.getCircularData(successData, article, index));
           }
 
           /** fetch the labels for the x-axis on success if we haven't already */
-          if (data.items && !labels.length) {
-            labels = data.items.map(function (elem) {
+          if (successData.items && !xhrData.labels.length) {
+            xhrData.labels = successData.items.map(function (elem) {
               return moment(elem.timestamp, config.timestampFormat).format(_this11.dateFormat);
             });
           }
         }).fail(function (data) {
           if (data.status === 404) {
             _this11.writeMessage('<a href=\'' + _this11.getPageURL(article) + '\'>' + article.descore() + '</a> - ' + i18nMessages.apiErrorNoData);
-            articles = articles.filter(function (el) {
+            xhrData.articles = xhrData.articles.filter(function (el) {
               return el !== article;
             });
 
-            if (!articles.length) {
+            if (!xhrData.articles.length) {
               $('.chart-container').html('');
               $('.chart-container').removeClass('loading');
             }
           } else if (data.responseJSON.detail) {
-            errors.push(data.responseJSON.detail[0]);
+            xhrData.errors.push(data.responseJSON.detail[0]);
           } else {
-            errors.push(data.responseJSON.title);
+            xhrData.errors.push(data.responseJSON.title);
           }
         });
       });
 
-      (_$ = $).when.apply(_$, promises).always(function (data) {
-        $('#chart-legend').html(''); // clear old chart legend
+      (_$ = $).when.apply(_$, _toConsumableArray(xhrData.promises)).always(this.updateChart.bind(this, xhrData));
+    }
+  }, {
+    key: 'updateChart',
+    value: function updateChart(xhrData) {
+      $('#chart-legend').html(''); // clear old chart legend
 
-        if (errors.length && errors.length === articles.length) {
-          /** something went wrong */
-          $('.chart-container').removeClass('loading');
-          var errorMessages = Array.from(new Set(errors)).map(function (error) {
-            return '<li>' + error + '</li>';
-          }).join('');
-          return _this11.writeMessage(i18nMessages.apiError + '<ul>' + errorMessages + '</ul><br/>' + i18nMessages.apiErrorContact, true);
-        }
-
-        if (!articles.length) return;
-
-        /** preserve order of datasets due to asyn calls */
-        var sortedDatasets = new Array(articles.length);
-        datasets.forEach(function (dataset) {
-          sortedDatasets[articles.indexOf(dataset.label.score())] = dataset;
-        });
-
+      if (xhrData.errors.length && xhrData.errors.length === xhrData.articles.length) {
+        /** something went wrong */
         $('.chart-container').removeClass('loading');
+        var errorMessages = Array.from(new Set(xhrData.errors)).map(function (error) {
+          return '<li>' + error + '</li>';
+        }).join('');
+        return this.writeMessage(i18nMessages.apiError + '<ul>' + errorMessages + '</ul><br/>' + i18nMessages.apiErrorContact, true);
+      }
 
-        var tooltipOpts = ['line', 'bar'].includes(_this11.chartType) ? {
-          tooltips: {
-            mode: 'label',
-            callbacks: {
-              label: function label(tooltipItem) {
-                if (Number.isNaN(tooltipItem.yLabel)) {
-                  return ' ' + i18nMessages.unknown;
-                } else {
-                  return ' ' + formatNumber(tooltipItem.yLabel);
-                }
+      if (!xhrData.articles.length) return;
+
+      /** preserve order of datasets due to asyn calls */
+      var sortedDatasets = new Array(xhrData.articles.length);
+      xhrData.datasets.forEach(function (dataset) {
+        sortedDatasets[xhrData.articles.indexOf(dataset.label.score())] = dataset;
+      });
+
+      $('.chart-container').removeClass('loading');
+
+      var tooltipOpts = ['line', 'bar'].includes(this.chartType) ? {
+        tooltips: {
+          mode: 'label',
+          callbacks: {
+            label: function label(tooltipItem) {
+              if (Number.isNaN(tooltipItem.yLabel)) {
+                return ' ' + i18nMessages.unknown;
+              } else {
+                return ' ' + formatNumber(tooltipItem.yLabel);
               }
             }
           }
-        } : {};
-
-        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts, tooltipOpts);
-        if ($(config.logarithmicCheckbox).is(':checked')) {
-          options.scales = {
-            yAxes: [{
-              type: 'logarithmic',
-              ticks: {
-                autoSkip: true,
-                callback: function callback(value) {
-                  return value;
-                },
-                userCallback: function userCallback(label, index) {
-                  return index % 3 === 0 ? label : '';
-                },
-                maxTicksLimit: 5
-              }
-            }]
-          };
         }
+      } : {};
 
-        var linearData = { labels: labels, datasets: sortedDatasets };
+      var options = Object.assign({}, config.chartConfig[this.chartType].opts, config.globalChartOpts, tooltipOpts);
+      if ($(config.logarithmicCheckbox).is(':checked')) {
+        options.scales = {
+          yAxes: [{
+            type: 'logarithmic',
+            ticks: {
+              autoSkip: true,
+              callback: function callback(value) {
+                return value;
+              },
+              userCallback: function userCallback(label, index) {
+                return index % 3 === 0 ? label : '';
+              },
+              maxTicksLimit: 5
+            }
+          }]
+        };
+      }
 
-        $('.chart-container').html('');
-        $('.chart-container').append("<canvas class='aqs-chart'>");
-        var context = $(config.chart)[0].getContext('2d');
+      var linearData = { labels: xhrData.labels, datasets: sortedDatasets };
 
-        if (config.linearCharts.includes(_this11.chartType)) {
-          _this11.chartObj = new Chart(context, {
-            type: _this11.chartType,
-            data: linearData,
-            options: options
-          });
-        } else {
-          _this11.chartObj = new Chart(context, {
-            type: _this11.chartType,
-            data: {
-              labels: sortedDatasets.map(function (d) {
-                return d.label;
+      $('.chart-container').html('');
+      $('.chart-container').append("<canvas class='aqs-chart'>");
+      var context = $(config.chart)[0].getContext('2d');
+
+      if (config.linearCharts.includes(this.chartType)) {
+        this.chartObj = new Chart(context, {
+          type: this.chartType,
+          data: linearData,
+          options: options
+        });
+      } else {
+        this.chartObj = new Chart(context, {
+          type: this.chartType,
+          data: {
+            labels: sortedDatasets.map(function (d) {
+              return d.label;
+            }),
+            datasets: [{
+              data: sortedDatasets.map(function (d) {
+                return d.value;
               }),
-              datasets: [{
-                data: sortedDatasets.map(function (d) {
-                  return d.value;
-                }),
-                backgroundColor: sortedDatasets.map(function (d) {
-                  return d.backgroundColor;
-                }),
-                hoverBackgroundColor: sortedDatasets.map(function (d) {
-                  return d.hoverBackgroundColor;
-                })
-              }]
-            },
-            options: options
-          });
-        }
+              backgroundColor: sortedDatasets.map(function (d) {
+                return d.backgroundColor;
+              }),
+              hoverBackgroundColor: sortedDatasets.map(function (d) {
+                return d.hoverBackgroundColor;
+              })
+            }]
+          },
+          options: options
+        });
+      }
 
-        $('#chart-legend').html(_this11.chartObj.generateLegend());
-        $('.data-links').show();
-      });
+      $('#chart-legend').html(this.chartObj.generateLegend());
+      $('.data-links').show();
     }
 
     /**
@@ -1422,6 +1428,8 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/** Shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -1912,10 +1920,10 @@ var Pv = function () {
      * Adapted from http://jsfiddle.net/dandv/47cbj/ courtesy of dandv
      *
      * Same as _.debounce but queues and executes all function calls
-     * @param  {Function} fn      [description]
-     * @param  {[type]}   delay   [description]
-     * @param  {[type]}   context [description]
-     * @return {[type]}           [description]
+     * @param  {Function} fn - function to debounce
+     * @param  {delay} delay - delay duration of milliseconds
+     * @param  {object} context - scope the function should refer to
+     * @return {Function} rate-limited function to call instead of your function
      */
 
   }, {
@@ -2056,7 +2064,7 @@ var Pv = function () {
 
     /**
      * Get the daterangepicker instance. Plain and simple.
-     * @return {Object} daterange picker
+     * @returns {Object} daterange picker
      */
 
   }, {
@@ -2988,14 +2996,14 @@ module.exports = siteMap;
 },{}],7:[function(require,module,exports){
 'use strict';
 
+var pv = require('./shared/pv');
+
 /**
  * Templates used by Chart.js
  * Functions used within our app must be in the global scope
  * All quotations must be double-quotes or properly escaped
  * @type {Object}
  */
-var pv = require('./shared/pv');
-
 var templates = {
   // FIXME: add back a tile for Totals, and include totals for all of the currently selected project, and perhaps unique devices
   linearLegend: function linearLegend(datasets) {

@@ -506,7 +506,7 @@ class PageViews extends Pv {
 
   /**
    * Removes all article selector related stuff then adds it back
-   * Also calls updateChart
+   * Also calls processPages
    * @returns {null} nothing
    */
   resetArticleSelector() {
@@ -574,7 +574,7 @@ class PageViews extends Pv {
       this.resetArticleSelector();
     }
 
-    this.updateChart(true);
+    this.processPages(true);
   }
 
   /**
@@ -611,7 +611,7 @@ class PageViews extends Pv {
     };
 
     articleSelector.select2(params);
-    articleSelector.on('change', this.updateChart.bind(this));
+    articleSelector.on('change', this.processPages.bind(this));
   }
 
   /**
@@ -746,7 +746,7 @@ class PageViews extends Pv {
 
     dateRangeSelector.on('change', e => {
       this.setChartPointDetectionRadius();
-      this.updateChart();
+      this.processPages();
 
       /** clear out specialRange if it doesn't match our input */
       if (this.specialRange && this.specialRange.value !== e.target.value) {
@@ -764,16 +764,16 @@ class PageViews extends Pv {
 
     $('.download-csv').on('click', this.exportCSV.bind(this));
     $('.download-json').on('click', this.exportJSON.bind(this));
-    $('#platform-select, #agent-select').on('change', this.updateChart.bind(this));
+    $('#platform-select, #agent-select').on('change', this.processPages.bind(this));
 
     /** changing of chart types */
     $('.modal-chart-type a').on('click', e => {
       this.chartType = $(e.currentTarget).data('type');
       this.setLocalStorage('pageviews-chart-preference', this.chartType);
-      this.updateChart();
+      this.processPages();
     });
 
-    $(config.logarithmicCheckbox).on('click', this.updateChart.bind(this));
+    $(config.logarithmicCheckbox).on('click', this.processPages.bind(this));
 
     // window.onpopstate = popParams();
   }
@@ -836,7 +836,7 @@ class PageViews extends Pv {
    * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
    * @returns {null} - nothin
    */
-  updateChart(force) {
+  processPages(force) {
     this.pushParams();
 
     /** prevent duplicate querying due to conflicting listeners */
@@ -844,7 +844,7 @@ class PageViews extends Pv {
       return;
     }
 
-    /** @type {Object} everything we need to track of for the promises */
+    /** @type {Object} everything we need to keep track of for the promises */
     let xhrData = {
       articles: $(config.articleSelector).select2('val') || [],
       labels: [], // Labels (dates) for the x-axis.
@@ -853,7 +853,7 @@ class PageViews extends Pv {
       promises: []
     };
 
-    if (!articles.length) {
+    if (!xhrData.articles.length) {
       this.resetView();
       return;
     }
@@ -874,7 +874,7 @@ class PageViews extends Pv {
      * Asynchronously collect the data from RESTBase API,
      * process it to Chart.js format and initialize the chart.
      */
-    articles.forEach((article, index) => {
+    xhrData.articles.forEach((article, index) => {
       const uriEncodedArticle = encodeURIComponent(article);
       /** @type {String} Url to query the API. */
       const url = (
@@ -886,7 +886,7 @@ class PageViews extends Pv {
         url: url,
         dataType: 'json'
       });
-      promises.push(promise);
+      xhrData.promises.push(promise);
 
       promise.success(successData => {
         // FIXME: these needs fixing too, sometimes doesn't show zero
@@ -894,9 +894,9 @@ class PageViews extends Pv {
 
         /** Build the article's dataset. */
         if (config.linearCharts.includes(this.chartType)) {
-          datasets.push(this.getLinearData(successData, article, index));
+          xhrData.datasets.push(this.getLinearData(successData, article, index));
         } else {
-          datasets.push(this.getCircularData(successData, article, index));
+          xhrData.datasets.push(this.getCircularData(successData, article, index));
         }
 
         /** fetch the labels for the x-axis on success if we haven't already */
@@ -910,109 +910,111 @@ class PageViews extends Pv {
           this.writeMessage(
             `<a href='${this.getPageURL(article)}'>${article.descore()}</a> - ${$.i18n('api-error-no-data')}`
           );
-          articles = articles.filter(el => el !== article);
+          xhrData.articles = xhrData.articles.filter(el => el !== article);
 
-          if (!articles.length) {
+          if (!xhrData.articles.length) {
             $('.chart-container').html('');
             $('.chart-container').removeClass('loading');
           }
         } else if (data.responseJSON.detail) {
-          errors.push(data.responseJSON.detail[0]);
+          xhrData.errors.push(data.responseJSON.detail[0]);
         } else {
-          errors.push(data.responseJSON.title);
+          xhrData.errors.push(data.responseJSON.title);
         }
       });
     });
 
-    $.when(...promises).always(data => {
-      $('#chart-legend').html(''); // clear old chart legend
+    $.when(...xhrData.promises).always(this.updateChart.bind(this, xhrData));
+  }
 
-      if (errors.length && errors.length === articles.length) {
-        /** something went wrong */
-        $('.chart-container').removeClass('loading');
-        const errorMessages = Array.from(new Set(errors)).map(error => `<li>${error}</li>`).join('');
-        return this.writeMessage(
-          `${$.i18n('api-error')}<ul>${errorMessages}</ul><br/>${$.i18n('api-error-contact')}`,
-          true
-        );
-      }
+  updateChart(xhrData) {
+    $('#chart-legend').html(''); // clear old chart legend
 
-      if (!articles.length) return;
-
-      /** preserve order of datasets due to asyn calls */
-      let sortedDatasets = new Array(articles.length);
-      datasets.forEach(dataset => {
-        sortedDatasets[articles.indexOf(dataset.label.score())] = dataset;
-      });
-
+    if (xhrData.errors.length && xhrData.errors.length === xhrData.articles.length) {
+      /** something went wrong */
       $('.chart-container').removeClass('loading');
+      const errorMessages = Array.from(new Set(xhrData.errors)).map(error => `<li>${error}</li>`).join('');
+      return this.writeMessage(
+        `${i18nMessages.apiError}<ul>${errorMessages}</ul><br/>${i18nMessages.apiErrorContact}`,
+        true
+      );
+    }
 
-      const tooltipOpts = ['line', 'bar'].includes(this.chartType) ? {
-        tooltips: {
-          mode: 'label',
-          callbacks: {
-            label: tooltipItem => {
-              if (Number.isNaN(tooltipItem.yLabel)) {
-                return ' ' + i18nMessages.unknown;
-              } else {
-                return ' ' + formatNumber(tooltipItem.yLabel);
-              }
+    if (!xhrData.articles.length) return;
+
+    /** preserve order of datasets due to asyn calls */
+    let sortedDatasets = new Array(xhrData.articles.length);
+    xhrData.datasets.forEach(dataset => {
+      sortedDatasets[xhrData.articles.indexOf(dataset.label.score())] = dataset;
+    });
+
+    $('.chart-container').removeClass('loading');
+
+    const tooltipOpts = ['line', 'bar'].includes(this.chartType) ? {
+      tooltips: {
+        mode: 'label',
+        callbacks: {
+          label: tooltipItem => {
+            if (Number.isNaN(tooltipItem.yLabel)) {
+              return ' ' + i18nMessages.unknown;
+            } else {
+              return ' ' + formatNumber(tooltipItem.yLabel);
             }
           }
         }
-      } : {};
+      }
+    } : {};
 
-      const options = Object.assign({},
-        config.chartConfig[this.chartType].opts,
-        config.globalChartOpts,
-        tooltipOpts
-      );
-      if ($(config.logarithmicCheckbox).is(':checked')) {
-        options.scales = {
-          yAxes: [{
-            type: 'logarithmic',
-            ticks: {
-              autoSkip: true,
-              callback: value => value,
-              userCallback: (label, index) => {
-                return index % 3 === 0 ? label : '';
-              },
-              maxTicksLimit: 5
-            }
+    const options = Object.assign({},
+      config.chartConfig[this.chartType].opts,
+      config.globalChartOpts,
+      tooltipOpts
+    );
+    if ($(config.logarithmicCheckbox).is(':checked')) {
+      options.scales = {
+        yAxes: [{
+          type: 'logarithmic',
+          ticks: {
+            autoSkip: true,
+            callback: value => value,
+            userCallback: (label, index) => {
+              return index % 3 === 0 ? label : '';
+            },
+            maxTicksLimit: 5
+          }
+        }]
+      };
+    }
+
+    const linearData = {labels: xhrData.labels, datasets: sortedDatasets};
+
+    $('.chart-container').html('');
+    $('.chart-container').append("<canvas class='aqs-chart'>");
+    const context = $(config.chart)[0].getContext('2d');
+
+    if (config.linearCharts.includes(this.chartType)) {
+      this.chartObj = new Chart(context, {
+        type: this.chartType,
+        data: linearData,
+        options
+      });
+    } else {
+      this.chartObj = new Chart(context, {
+        type: this.chartType,
+        data: {
+          labels: sortedDatasets.map(d => d.label),
+          datasets: [{
+            data: sortedDatasets.map(d => d.value),
+            backgroundColor: sortedDatasets.map(d => d.backgroundColor),
+            hoverBackgroundColor: sortedDatasets.map(d => d.hoverBackgroundColor)
           }]
-        };
-      }
+        },
+        options
+      });
+    }
 
-      const linearData = {labels: labels, datasets: sortedDatasets};
-
-      $('.chart-container').html('');
-      $('.chart-container').append("<canvas class='aqs-chart'>");
-      const context = $(config.chart)[0].getContext('2d');
-
-      if (config.linearCharts.includes(this.chartType)) {
-        this.chartObj = new Chart(context, {
-          type: this.chartType,
-          data: linearData,
-          options
-        });
-      } else {
-        this.chartObj = new Chart(context, {
-          type: this.chartType,
-          data: {
-            labels: sortedDatasets.map(d => d.label),
-            datasets: [{
-              data: sortedDatasets.map(d => d.value),
-              backgroundColor: sortedDatasets.map(d => d.backgroundColor),
-              hoverBackgroundColor: sortedDatasets.map(d => d.hoverBackgroundColor)
-            }]
-          },
-          options
-        });
-      }
-
-      $('#chart-legend').html(this.chartObj.generateLegend());
-      $('.data-links').show();
-    });
+    $('#chart-legend').html(this.chartObj.generateLegend());
+    $('.data-links').show();
   }
 
   /**
