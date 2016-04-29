@@ -13,6 +13,7 @@ const pv = require('./shared/pv');
  * @type {Object}
  */
 const config = {
+  agentSelector: '#agent-select',
   articleSelector: '.aqs-article-selector',
   chart: '.aqs-chart',
   chartConfig: {
@@ -58,7 +59,8 @@ const config = {
       dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.8),
+          hoverBackgroundColor: color
         };
       }
     },
@@ -90,12 +92,14 @@ const config = {
       },
       dataset(color) {
         return {
-          fillColor: pv.rgba(color, 0.1),
-          pointColor: color,
-          pointStrokeColor: '#fff',
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          strokeColor: color
+          color,
+          backgroundColor: pv.rgba(color, 0.1),
+          borderColor: color,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     }
@@ -122,37 +126,12 @@ const config = {
     legend: {
       display: false
     },
-    tooltips: {
-      mode: 'label',
-      callbacks: {
-        label: tooltipItem => {
-          if (Number.isNaN(tooltipItem.yLabel)) {
-            return ' ' + i18nMessages.unknown;
-          } else {
-            return ' ' + (new Number(tooltipItem.yLabel)).toLocaleString();
-          }
-        }
-      }
-    },
     legendCallback: chart => {
       return templates.linearLegend(chart.data.datasets);
     }
-
-    // animation: true,
-    // animationEasing: 'easeInOutQuart',
-    // animationSteps: 30,
-    // labelsFilter: (value, index, labels) => {
-    //   if (labels.length >= 60) {
-    //     return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
-    //   } else {
-    //     return false;
-    //   }
-    // },
-    // multiTooltipTemplate: '<%= formatNumber(value) %>',
-    // scaleLabel: '<%= formatNumber(value) %>',
-    // tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
   },
   linearCharts: ['line', 'bar', 'radar'],
+  logarithmicCheckbox: '.logarithmic-scale-option',
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
   platformSelector: '#platform-select',

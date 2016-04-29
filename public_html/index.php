@@ -101,9 +101,9 @@
           <canvas class="aqs-chart"></canvas>
         </div>
         <div class="message-container col-lg-12"></div>
-        <span class="pull-right">
-          <label>
-            <input type="checkbox">
+        <span class="col-lg-12 text-right">
+          <label class="logarithmic-scale">
+            <input class="logarithmic-scale-option" type="checkbox">
             Logarithmic scale
           </label>
         </span>

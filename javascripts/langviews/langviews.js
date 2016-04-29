@@ -180,8 +180,8 @@ class LangViews extends Pv {
        <th>${$.i18n('num-languages', this.langData.length)}</th>
        <th>${$.i18n('unique-titles', this.totals.titles.length)}</th>
        <th>${totalBadgesMarkup}</th>
-       <th>${this.n(this.totals.views)}</th>
-       <th>${this.n(Math.round(this.totals.views / this.numDaysInRange()))} / ${$.i18n('day')}</th>`
+       <th>${this.formatNumber(this.totals.views)}</th>
+       <th>${this.formatNumber(Math.round(this.totals.views / this.numDaysInRange()))} / ${$.i18n('day')}</th>`
     );
     $('#lang_list').html('');
 
@@ -198,7 +198,7 @@ class LangViews extends Pv {
          <td><a href="${item.url}" target="_blank">${item.pageName}</a></td>
          <td>${badgeMarkup}</td>
          <td><a href='${this.getPageviewsURL(item.lang, this.baseProject, item.pageName)}'>${this.n(item.views)}</a></td>
-         <td>${this.n(Math.round(item.views / this.numDaysInRange()))} / ${$.i18n('day')}</td>
+         <td>${this.formatNumber(Math.round(item.views / this.numDaysInRange()))} / ${$.i18n('day')}</td>
          </tr>`
       );
     });

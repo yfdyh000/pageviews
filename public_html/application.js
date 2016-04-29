@@ -42,6 +42,7 @@ var templates = require('./templates');
 var pv = require('./shared/pv');
 
 var config = {
+  agentSelector: '#agent-select',
   articleSelector: '.aqs-article-selector',
   chart: '.aqs-chart',
   chartConfig: {
@@ -88,7 +89,8 @@ var config = {
       dataset: function dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.8),
+          hoverBackgroundColor: color
         };
       }
     },
@@ -120,12 +122,14 @@ var config = {
       },
       dataset: function dataset(color) {
         return {
-          fillColor: pv.rgba(color, 0.1),
-          pointColor: color,
-          pointStrokeColor: '#fff',
-          pointHighlightFill: '#fff',
-          pointHighlightStroke: color,
-          strokeColor: color
+          color: color,
+          backgroundColor: pv.rgba(color, 0.1),
+          borderColor: color,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: pv.rgba(color, 0.8),
+          pointHoverBackgroundColor: color,
+          pointHoverBorderColor: 'rgba(220,220,220,1)',
+          pointHoverRadius: 5
         };
       }
     }
@@ -152,37 +156,12 @@ var config = {
     legend: {
       display: false
     },
-    tooltips: {
-      mode: 'label',
-      callbacks: {
-        label: function label(tooltipItem) {
-          if (Number.isNaN(tooltipItem.yLabel)) {
-            return ' ' + i18nMessages.unknown;
-          } else {
-            return ' ' + new Number(tooltipItem.yLabel).toLocaleString();
-          }
-        }
-      }
-    },
     legendCallback: function legendCallback(chart) {
       return templates.linearLegend(chart.data.datasets);
     }
-
-    // animation: true,
-    // animationEasing: 'easeInOutQuart',
-    // animationSteps: 30,
-    // labelsFilter: (value, index, labels) => {
-    //   if (labels.length >= 60) {
-    //     return (index + 1) % Math.ceil(labels.length / 60 * 2) !== 0;
-    //   } else {
-    //     return false;
-    //   }
-    // },
-    // multiTooltipTemplate: '<%= formatNumber(value) %>',
-    // scaleLabel: '<%= formatNumber(value) %>',
-    // tooltipTemplate: '<%if (label){%><%=label%>: <%}%><%= formatNumber(value) %>'
   },
   linearCharts: ['line', 'bar', 'radar'],
+  logarithmicCheckbox: '.logarithmic-scale-option',
   minDate: moment('2015-08-01').startOf('day'),
   maxDate: moment().subtract(1, 'days').startOf('day'),
   platformSelector: '#platform-select',
@@ -541,7 +520,8 @@ var PageViews = function (_Pv) {
       var params = {
         project: $(config.projectInput).val(),
         platform: $(config.platformSelector).val(),
-        agent: $('#agent-select').val()
+        agent: $(config.agentSelector).val(),
+        logarithmic: $(config.logarithmicCheckbox).is(':checked') ? 1 : 0
       };
 
       /**
@@ -674,8 +654,9 @@ var PageViews = function (_Pv) {
         this.setSpecialRange(config.defaults.dateRange);
       }
 
-      $('#platform-select').val(params.platform || 'all-access');
-      $('#agent-select').val(params.agent || 'user');
+      $(config.platformSelector).val(params.platform || 'all-access');
+      $(config.agentSelector).val(params.agent || 'user');
+      $(config.logarithmicCheckbox).prop('checked', params.logarithmic === '1');
 
       this.resetArticleSelector();
 
@@ -1047,6 +1028,8 @@ var PageViews = function (_Pv) {
         _this8.updateChart();
       });
 
+      $(config.logarithmicCheckbox).on('click', this.updateChart.bind(this));
+
       // window.onpopstate = popParams();
     }
 
@@ -1166,7 +1149,7 @@ var PageViews = function (_Pv) {
       articles.forEach(function (article, index) {
         var uriEncodedArticle = encodeURIComponent(article);
         /** @type {String} Url to query the API. */
-        var url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/' + _this11.project + ('/' + $('#platform-select').val() + '/' + $('#agent-select').val() + '/' + uriEncodedArticle + '/daily') + ('/' + startDate.format(config.timestampFormat) + '/' + endDate.format(config.timestampFormat));
+        var url = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/' + _this11.project + ('/' + $(config.platformSelector).val() + '/' + $(config.agentSelector).val() + '/' + uriEncodedArticle + '/daily') + ('/' + startDate.format(config.timestampFormat) + '/' + endDate.format(config.timestampFormat));
         var promise = $.ajax({
           url: url,
           dataType: 'json'
@@ -1231,22 +1214,39 @@ var PageViews = function (_Pv) {
 
         $('.chart-container').removeClass('loading');
 
-        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts);
-        // if (logarithmic) {
-        //   options.scales = {
-        //     yAxes: [{
-        //       type: 'logarithmic',
-        //       ticks: {
-        //         autoSkip: true,
-        //         callback: value => value,
-        //         userCallback: (label, index) => {
-        //           return index % 3 === 0 ? label : '';
-        //         },
-        //         maxTicksLimit: 5
-        //       }
-        //     }]
-        //   };
-        // }
+        var tooltipOpts = ['line', 'bar'].includes(_this11.chartType) ? {
+          tooltips: {
+            mode: 'label',
+            callbacks: {
+              label: function label(tooltipItem) {
+                if (Number.isNaN(tooltipItem.yLabel)) {
+                  return ' ' + i18nMessages.unknown;
+                } else {
+                  return ' ' + formatNumber(tooltipItem.yLabel);
+                }
+              }
+            }
+          }
+        } : {};
+
+        var options = Object.assign({}, config.chartConfig[_this11.chartType].opts, config.globalChartOpts, tooltipOpts);
+        if ($(config.logarithmicCheckbox).is(':checked')) {
+          options.scales = {
+            yAxes: [{
+              type: 'logarithmic',
+              ticks: {
+                autoSkip: true,
+                callback: function callback(value) {
+                  return value;
+                },
+                userCallback: function userCallback(label, index) {
+                  return index % 3 === 0 ? label : '';
+                },
+                maxTicksLimit: 5
+              }
+            }]
+          };
+        }
 
         var linearData = { labels: labels, datasets: sortedDatasets };
 
@@ -1261,7 +1261,26 @@ var PageViews = function (_Pv) {
             options: options
           });
         } else {
-          _this11.chartObj = new Chart(context)[_this11.chartType](sortedDatasets, options);
+          _this11.chartObj = new Chart(context, {
+            type: _this11.chartType,
+            data: {
+              labels: sortedDatasets.map(function (d) {
+                return d.label;
+              }),
+              datasets: [{
+                data: sortedDatasets.map(function (d) {
+                  return d.value;
+                }),
+                backgroundColor: sortedDatasets.map(function (d) {
+                  return d.backgroundColor;
+                }),
+                hoverBackgroundColor: sortedDatasets.map(function (d) {
+                  return d.hoverBackgroundColor;
+                })
+              }]
+            },
+            options: options
+          });
         }
 
         $('#chart-legend').html(_this11.chartObj.generateLegend());
@@ -3036,7 +3055,19 @@ var templates = {
     }
     return markup += '</div>';
   },
-  circularLegend: '<b>' + i18nMessages.totals + '</b> <% var total = chartData.reduce(function(a,b){ return a + b.value }, 0); %>' + '<ul class=\"<%=name.toLowerCase()%>-legend\">' + ('<%if(chartData.length > 1) {%><li><%= formatNumber(total) %> (<%= formatNumber(Math.round(total / numDaysInRange())) %>/' + i18nMessages.day + ')</li><% } %>') + '<% for (var i=0; i<segments.length; i++){%>' + '<li><span class=\"indic\" style=\"background-color:<%=segments[i].fillColor%>\">' + "<a href='<%= getPageURL(segments[i].label) %>'><%=segments[i].label%></a></span> " + ('<%= formatNumber(chartData[i].value) %> (<%= formatNumber(Math.round(chartData[i].value / numDaysInRange())) %>/' + i18nMessages.day + ')</li><%}%></ul>')
+  circularLegend: function circularLegend(datasets) {
+    var total = datasets.reduce(function (a, b) {
+      return a + b.sum;
+    }, 0);
+    markup = '<div class="linear-legend--totals">\n      <strong>' + i18nMessages.totals + ':</strong>\n      ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n    </div>';
+
+    markup += '<div class="linear-legends">';
+
+    for (var i = 0; i < datasets.length; i++) {
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(datasets[i].average) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+    }
+    return markup += '</div>';
+  }
 };
 
 module.exports = templates;

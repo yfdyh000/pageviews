@@ -5,7 +5,7 @@
  * @license MIT License: https://opensource.org/licenses/MIT
  */
 
-/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
+/** Pv class, contains shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 class Pv {
   constructor() {
     this.storage = {}; // used as fallback when localStorage is not supported
@@ -72,7 +72,7 @@ class Pv {
 
   /**
    * Get the daterangepicker instance. Plain and simple.
-   * @return {Object} daterange picker
+   * @returns {Object} daterange picker
    */
   get daterangepicker() {
     return $(this.config.dateRangeSelector).data('daterangepicker');

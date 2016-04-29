@@ -79,7 +79,7 @@ class TopViews extends Pv {
          <span class='topview-entry--rank'>${++count}</span>
          <a class='topview-entry--label' href="${this.getPageURL(item.article)}" target="_blank">${item.article}</a>
          <span class='topview-entry--leader'></span>
-         <a class='topview-entry--views' href='${this.getPageviewsURL(item.article)}'>${this.n(item.views)}</a></div>`
+         <a class='topview-entry--views' href='${this.getPageviewsURL(item.article)}'>${this.formatNumber(item.views)}</a></div>`
       );
     }
 

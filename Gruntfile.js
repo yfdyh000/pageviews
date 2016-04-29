@@ -33,6 +33,15 @@ module.exports = function(grunt) {
     eslint: {
       src: ['javascripts/**/*.js']
     },
+    jsdoc: {
+      dist: {
+        src: ['javascripts/**/*.js'],
+        options: {
+          destination: 'doc',
+          package: 'package.json'
+        }
+      }
+    },
     scsslint: {
       options: {
         conifg: '.scss-lint.yml',

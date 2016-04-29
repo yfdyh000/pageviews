@@ -380,3 +380,11 @@ footer {
 .linear-legend--links {
   padding: 5px 10px;
 }
+
+.logarithmic-scale {
+  font-weight: normal;
+}
+.logarithmic-scale input {
+  position: relative;
+  top: -1px;
+}
