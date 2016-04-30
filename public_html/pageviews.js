@@ -1,9 +1,20 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
+/**
+ * @file Configuration for Pageviews application
+ * @author MusikAnimal
+ * @copyright 2016 MusikAnimal
+ */
+
 var templates = require('./templates');
 var pv = require('./shared/pv');
 
+/**
+ * Configuration for Pageviews application.
+ * This includes selectors, defaults, and other constants specific to Pageviews
+ * @type {Object}
+ */
 var config = {
   agentSelector: '#agent-select',
   articleSelector: '.aqs-article-selector',
@@ -160,9 +171,10 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 /**
- * Pageviews Analysis tool
- * Original code forked from https://gist.github.com/marcelrf/49738d14116fd547fe6d courtesy of marcelrf
- * @file Main file for Pageviews app
+ * Pageviews Analysis
+ * @file Main file for Pageviews application.
+ *   [Original code](https://gist.github.com/marcelrf/49738d14116fd547fe6d) courtesy of marcelrf
+ * @author MusikAnimal, Kaldari, Marcelrf
  * @copyright 2016 MusikAnimal
  * @license MIT License: https://opensource.org/licenses/MIT
  */
@@ -484,8 +496,7 @@ var PageViews = function (_Pv) {
       var params = {
         project: $(config.projectInput).val(),
         platform: $(config.platformSelector).val(),
-        agent: $(config.agentSelector).val(),
-        logarithmic: $(config.logarithmicCheckbox).is(':checked') ? 1 : 0
+        agent: $(config.agentSelector).val()
       };
 
       /**
@@ -620,7 +631,6 @@ var PageViews = function (_Pv) {
 
       $(config.platformSelector).val(params.platform || 'all-access');
       $(config.agentSelector).val(params.agent || 'user');
-      $(config.logarithmicCheckbox).prop('checked', params.logarithmic === '1');
 
       this.resetArticleSelector();
 
@@ -988,6 +998,11 @@ var PageViews = function (_Pv) {
       /** changing of chart types */
       $('.modal-chart-type a').on('click', function (e) {
         _this8.chartType = $(e.currentTarget).data('type');
+
+        var isLogarithmicCapable = ['line', 'bar'].includes(_this8.chartType);
+
+        $('.logarithmic-scale').toggle(isLogarithmicCapable);
+
         _this8.setLocalStorage('pageviews-chart-preference', _this8.chartType);
         _this8.processPages();
       });
@@ -1063,7 +1078,6 @@ var PageViews = function (_Pv) {
 
     /**
      * The mother of all functions, where all the chart logic lives
-     * Really needs to be broken out into several functions
      *
      * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
      * @returns {null} - nothin
@@ -1160,6 +1174,13 @@ var PageViews = function (_Pv) {
 
       (_$ = $).when.apply(_$, _toConsumableArray(xhrData.promises)).always(this.updateChart.bind(this, xhrData));
     }
+
+    /**
+     * Update the chart with data provided by processArticles()
+     * @param  {Object} xhrData - data as constructed by processArticles()
+     * @return {null} Nothing
+     */
+
   }, {
     key: 'updateChart',
     value: function updateChart(xhrData) {
@@ -1295,6 +1316,14 @@ $(document).ready(function () {
 },{"./config":1,"./shared/pv":5,"./shared/site_map":6}],3:[function(require,module,exports){
 'use strict';
 
+/**
+ * @file Core JavaScript extensions, either to native JS or a library.
+ *   Polyfills have their own file [polyfills.js](global.html#polyfills)
+ * @author MusikAnimal
+ * @copyright 2016 MusikAnimal
+ * @license MIT License: https://opensource.org/licenses/MIT
+ */
+
 String.prototype.descore = function () {
   return this.replace(/_/g, ' ');
 };
@@ -1348,6 +1377,11 @@ Chart.Controller.prototype.getElementsAtEvent = function (e) {
 
 },{}],4:[function(require,module,exports){
 'use strict';
+
+/**
+ * @file Polyfills for users who refuse to upgrade their browsers
+ *   Most code is adapted from [MDN](https://developer.mozilla.org)
+ */
 
 // Array.includes function polyfill
 // This is not a full implementation, just a shorthand to indexOf !== -1
@@ -1429,7 +1463,14 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-/** Shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
+/**
+ * @file Shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews)
+ * @author MusikAnimal
+ * @copyright 2016 MusikAnimal
+ * @license MIT License: https://opensource.org/licenses/MIT
+ */
+
+/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -2094,6 +2135,9 @@ module.exports = Pv;
 },{}],6:[function(require,module,exports){
 'use strict';
 
+/**
+ * @file WMF [site matrix](https://www.mediawiki.org/w/api.php?action=sitematrix), with some unsupported wikis removed
+ */
 var siteMap = {
   'aawiki': 'aa.wikipedia.org',
   'aawiktionary': 'aa.wiktionary.org',
@@ -2996,12 +3040,18 @@ module.exports = siteMap;
 },{}],7:[function(require,module,exports){
 'use strict';
 
+/**
+ * @file Templates used by Chart.js
+ * @author MusikAnimal
+ * @copyright 2016 MusikAnimal
+ */
+
 var pv = require('./shared/pv');
 
 /**
- * Templates used by Chart.js
- * Functions used within our app must be in the global scope
- * All quotations must be double-quotes or properly escaped
+ * Templates used by Chart.js.
+ * Functions used within our app must be in the global scope.
+ * All quotations must be double-quotes or properly escaped.
  * @type {Object}
  */
 var templates = {

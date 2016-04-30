@@ -284,8 +284,7 @@ class PageViews extends Pv {
     let params = {
       project: $(config.projectInput).val(),
       platform: $(config.platformSelector).val(),
-      agent: $(config.agentSelector).val(),
-      logarithmic: $(config.logarithmicCheckbox).is(':checked') ? 1 : 0
+      agent: $(config.agentSelector).val()
     };
 
     /**
@@ -421,7 +420,6 @@ class PageViews extends Pv {
 
     $(config.platformSelector).val(params.platform || 'all-access');
     $(config.agentSelector).val(params.agent || 'user');
-    $(config.logarithmicCheckbox).prop('checked', params.logarithmic === '1');
 
     this.resetArticleSelector();
 
@@ -770,6 +768,11 @@ class PageViews extends Pv {
     /** changing of chart types */
     $('.modal-chart-type a').on('click', e => {
       this.chartType = $(e.currentTarget).data('type');
+
+      const isLogarithmicCapable = ['line', 'bar'].includes(this.chartType);
+
+      $('.logarithmic-scale').toggle(isLogarithmicCapable);
+
       this.setLocalStorage('pageviews-chart-preference', this.chartType);
       this.processPages();
     });
