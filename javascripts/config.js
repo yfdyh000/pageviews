@@ -30,6 +30,11 @@ const config = {
           pointHoverBorderColor: 'rgba(220,220,220,1)',
           pointHoverRadius: 5
         };
+      },
+      opts: {
+        legendCallback: chart => {
+          return templates.linearLegend(chart.data.datasets);
+        }
       }
     },
     bar: {
@@ -49,12 +54,17 @@ const config = {
             barPercentage: 1.0,
             categoryPercentage: 0.85
           }]
+        },
+        legendCallback: chart => {
+          return templates.linearLegend(chart.data.datasets);
         }
       }
     },
     pie: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: chart => {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset(color) {
         return {
@@ -66,29 +76,37 @@ const config = {
     },
     doughnut: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: chart => {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.8),
+          hoverBackgroundColor: color
         };
       }
     },
-    polararea: {
+    polarArea: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: chart => {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.7),
+          hoverBackgroundColor: pv.rgba(color, 0.9)
         };
       }
     },
     radar: {
       opts: {
-        legendTemplate: templates.linearLegend
+        legendCallback: chart => {
+          return templates.linearLegend(chart.data.datasets);
+        }
       },
       dataset(color) {
         return {
@@ -104,7 +122,7 @@ const config = {
       }
     }
   },
-  circularCharts: ['Pie', 'Doughnut', 'PolarArea'],
+  circularCharts: ['pie', 'doughnut', 'polarArea'],
   colors: ['rgba(171, 212, 235, 1)', 'rgba(178, 223, 138, 1)', 'rgba(251, 154, 153, 1)', 'rgba(253, 191, 111, 1)', 'rgba(202, 178, 214, 1)', 'rgba(207, 182, 128, 1)', 'rgba(141, 211, 199, 1)', 'rgba(252, 205, 229, 1)', 'rgba(255, 247, 161, 1)', 'rgba(217, 217, 217, 1)'],
   cookieExpiry: 30, // num days
   defaults: {
@@ -125,9 +143,6 @@ const config = {
     },
     legend: {
       display: false
-    },
-    legendCallback: chart => {
-      return templates.linearLegend(chart.data.datasets);
     }
   },
   linearCharts: ['line', 'bar', 'radar'],

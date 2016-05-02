@@ -70,6 +70,12 @@ var config = {
           pointHoverBorderColor: 'rgba(220,220,220,1)',
           pointHoverRadius: 5
         };
+      },
+
+      opts: {
+        legendCallback: function legendCallback(chart) {
+          return templates.linearLegend(chart.data.datasets);
+        }
       }
     },
     bar: {
@@ -90,12 +96,17 @@ var config = {
             barPercentage: 1.0,
             categoryPercentage: 0.85
           }]
+        },
+        legendCallback: function legendCallback(chart) {
+          return templates.linearLegend(chart.data.datasets);
         }
       }
     },
     pie: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: function legendCallback(chart) {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset: function dataset(color) {
         return {
@@ -107,29 +118,44 @@ var config = {
     },
     doughnut: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: function legendCallback(chart) {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset: function dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.8),
+          hoverBackgroundColor: color
         };
       }
     },
-    polararea: {
+    polarArea: {
       opts: {
-        legendTemplate: templates.circularLegend
+        legendCallback: function legendCallback(chart) {
+          return templates.circularLegend(chart.data.datasets);
+        }
       },
       dataset: function dataset(color) {
         return {
           color: color,
-          highlight: pv.rgba(color, 0.8)
+          backgroundColor: pv.rgba(color, 0.7),
+          hoverBackgroundColor: pv.rgba(color, 0.9)
         };
       }
     },
     radar: {
       opts: {
-        legendTemplate: templates.linearLegend
+        legendCallback: function legendCallback(chart) {
+          return templates.linearLegend(chart.data.datasets);
+        },
+        scales: {
+          xAxes: [{
+            ticks: {
+              beginAtZero: true
+            }
+          }]
+        }
       },
       dataset: function dataset(color) {
         return {
@@ -145,7 +171,7 @@ var config = {
       }
     }
   },
-  circularCharts: ['Pie', 'Doughnut', 'PolarArea'],
+  circularCharts: ['pie', 'doughnut', 'polarArea'],
   colors: ['rgba(171, 212, 235, 1)', 'rgba(178, 223, 138, 1)', 'rgba(251, 154, 153, 1)', 'rgba(253, 191, 111, 1)', 'rgba(202, 178, 214, 1)', 'rgba(207, 182, 128, 1)', 'rgba(141, 211, 199, 1)', 'rgba(252, 205, 229, 1)', 'rgba(255, 247, 161, 1)', 'rgba(217, 217, 217, 1)'],
   cookieExpiry: 30, // num days
   defaults: {
@@ -166,9 +192,6 @@ var config = {
     },
     legend: {
       display: false
-    },
-    legendCallback: function legendCallback(chart) {
-      return templates.linearLegend(chart.data.datasets);
     }
   },
   linearCharts: ['line', 'bar', 'radar'],
@@ -442,13 +465,16 @@ var PageViews = function (_Pv) {
       var values = data.items.map(function (elem) {
         return elem.views;
       }),
-          color = config.colors[index];
+          color = config.colors[index],
+          value = values.reduce(function (a, b) {
+        return a + b;
+      }),
+          average = Math.round(value / values.length);
 
       return Object.assign({
         label: article.descore(),
-        value: values.reduce(function (a, b) {
-          return a + b;
-        })
+        value: value,
+        average: average
       }, config.chartConfig[this.chartType].dataset(color));
     }
 
@@ -1114,8 +1140,7 @@ var PageViews = function (_Pv) {
     }
 
     /**
-     * The mother of all functions, where all the chart logic lives
-     *
+     * Query the API for each page, building up the datasets and then calling updateChart
      * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
      * @returns {null} - nothin
      */
@@ -1276,13 +1301,13 @@ var PageViews = function (_Pv) {
         };
       }
 
-      var linearData = { labels: xhrData.labels, datasets: sortedDatasets };
-
       $('.chart-container').html('');
       $('.chart-container').append("<canvas class='aqs-chart'>");
       var context = $(config.chart)[0].getContext('2d');
 
       if (config.linearCharts.includes(this.chartType)) {
+        var linearData = { labels: xhrData.labels, datasets: sortedDatasets };
+
         this.chartObj = new Chart(context, {
           type: this.chartType,
           data: linearData,
@@ -1304,6 +1329,9 @@ var PageViews = function (_Pv) {
               }),
               hoverBackgroundColor: sortedDatasets.map(function (d) {
                 return d.hoverBackgroundColor;
+              }),
+              averages: sortedDatasets.map(function (d) {
+                return d.average;
               })
             }]
           },
@@ -3114,15 +3142,17 @@ var templates = {
     return markup += '</div>';
   },
   circularLegend: function circularLegend(datasets) {
-    var total = datasets.reduce(function (a, b) {
-      return a + b.sum;
-    }, 0);
-    markup = '<div class="linear-legend--totals">\n      <strong>' + i18nMessages.totals + ':</strong>\n      ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n    </div>';
+    var dataset = datasets[0],
+        total = dataset.data.reduce(function (a, b) {
+      return a + b;
+    });
+    var markup = '<div class="linear-legend--totals">\n      <strong>' + i18nMessages.totals + ':</strong>\n      ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n    </div>';
 
     markup += '<div class="linear-legends">';
 
-    for (var i = 0; i < datasets.length; i++) {
-      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(datasets[i].average) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+    for (var i = 0; i < dataset.data.length; i++) {
+      var label = dataset.metaData[i]._view.label;
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + dataset.backgroundColor[i] + '">\n            <a href="' + getPageURL(label) + '" target="_blank">' + label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(dataset.data[i]) + ' (' + formatNumber(dataset.averages[i]) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
     }
     return markup += '</div>';
   }

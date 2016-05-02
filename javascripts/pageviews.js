@@ -199,12 +199,15 @@ class PageViews extends Pv {
    */
   getCircularData(data, article, index) {
     const values = data.items.map(elem => elem.views),
-      color = config.colors[index];
+      color = config.colors[index],
+      value = values.reduce((a, b) => a + b),
+      average = Math.round(value / values.length);
 
     return Object.assign(
       {
         label: article.descore(),
-        value: values.reduce((a, b) => a + b)
+        value,
+        average
       },
       config.chartConfig[this.chartType].dataset(color)
     );
@@ -834,8 +837,7 @@ class PageViews extends Pv {
   }
 
   /**
-   * The mother of all functions, where all the chart logic lives
-   *
+   * Query the API for each page, building up the datasets and then calling updateChart
    * @param {boolean} force - whether to force the chart to re-render, even if no params have changed
    * @returns {null} - nothin
    */
@@ -935,6 +937,10 @@ class PageViews extends Pv {
    * @param  {Object} xhrData - data as constructed by processArticles()
    * @return {null} Nothing
    */
+  // BLOCKERS:
+  // https://github.com/chartjs/Chart.js/issues/2056
+  // https://github.com/chartjs/Chart.js/issues/2354
+  // https://github.com/chartjs/Chart.js/issues/1980
   updateChart(xhrData) {
     $('#chart-legend').html(''); // clear old chart legend
 
@@ -994,13 +1000,13 @@ class PageViews extends Pv {
       };
     }
 
-    const linearData = {labels: xhrData.labels, datasets: sortedDatasets};
-
     $('.chart-container').html('');
     $('.chart-container').append("<canvas class='aqs-chart'>");
     const context = $(config.chart)[0].getContext('2d');
 
     if (config.linearCharts.includes(this.chartType)) {
+      const linearData = {labels: xhrData.labels, datasets: sortedDatasets};
+
       this.chartObj = new Chart(context, {
         type: this.chartType,
         data: linearData,
@@ -1014,7 +1020,8 @@ class PageViews extends Pv {
           datasets: [{
             data: sortedDatasets.map(d => d.value),
             backgroundColor: sortedDatasets.map(d => d.backgroundColor),
-            hoverBackgroundColor: sortedDatasets.map(d => d.hoverBackgroundColor)
+            hoverBackgroundColor: sortedDatasets.map(d => d.hoverBackgroundColor),
+            averages: sortedDatasets.map(d => d.average)
           }]
         },
         options

@@ -61,29 +61,31 @@ const templates = {
     return markup += '</div>';
   },
   circularLegend: datasets => {
-    const total = datasets.reduce((a,b) => a + b.sum, 0);
-    markup = `<div class="linear-legend--totals">
+    const dataset = datasets[0],
+      total = dataset.data.reduce((a,b) => a + b);
+    let markup = `<div class="linear-legend--totals">
       <strong>${i18nMessages.totals}:</strong>
       ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${i18nMessages.day})
     </div>`;
 
     markup += '<div class="linear-legends">';
 
-    for (let i = 0; i < datasets.length; i++) {
+    for (let i = 0; i < dataset.data.length; i++) {
+      const label = dataset.metaData[i]._view.label;
       markup += `
         <span class="linear-legend">
-          <div class="linear-legend--label" style="background-color:${pv.rgba(datasets[i].color, 0.8)}">
-            <a href="${getPageURL(datasets[i].label)}" target="_blank">${datasets[i].label}</a>
+          <div class="linear-legend--label" style="background-color:${dataset.backgroundColor[i]}">
+            <a href="${getPageURL(label)}" target="_blank">${label}</a>
           </div>
           <div class="linear-legend--counts">
-            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${i18nMessages.day})
+            ${formatNumber(dataset.data[i])} (${formatNumber(dataset.averages[i])}/${i18nMessages.day})
           </div>
           <div class="linear-legend--links">
-            <a href="${getLangviewsURL(datasets[i].label)}" target="_blank">All languages</a>
+            <a href="${getLangviewsURL(label)}" target="_blank">All languages</a>
             &bullet;
-            <a href="${getPageURL(datasets[i].label)}?action=history" target="_blank">History</a>
+            <a href="${getPageURL(label)}?action=history" target="_blank">History</a>
             &bullet;
-            <a href="${getPageURL(datasets[i].label)}?action=info" target="_blank">Info</a>
+            <a href="${getPageURL(label)}?action=info" target="_blank">Info</a>
           </div>
         </span>
       `;
