@@ -47,22 +47,22 @@ const templates = {
     if (datasets.length === 1) {
       const dataset = datasets[0];
       return `&lt;div class="linear-legend--totals">
-        &lt;strong>${i18nMessages.totals}:&lt;/strong>
-        ${formatNumber(dataset.sum)} (${formatNumber(dataset.average)}/${i18nMessages.day})
+        &lt;strong>${$.i18n('totals')}:&lt;/strong>
+        ${formatNumber(dataset.sum)} (${formatNumber(dataset.average)}/${$.i18n('day')})
         &amp;bullet;
         &lt;a href="${getLangviewsURL(dataset.label)}" target="_blank">All languages&lt;/a>
         &amp;bullet;
-        &lt;a href="${getPageURL(dataset.label)}?action=history" target="_blank">History&lt;/a>
+        &lt;a href="${getExpandedPageURL(dataset.label)}?action=history" target="_blank">History&lt;/a>
         &amp;bullet;
-        &lt;a href="${getPageURL(dataset.label)}?action=info" target="_blank">Info&lt;/a>
+        &lt;a href="${getExpandedPageURL(dataset.label)}?action=info" target="_blank">Info&lt;/a>
       &lt;/div>`;
     }
 
     if (datasets.length > 1) {
       const total = datasets.reduce((a,b) => a + b.sum, 0);
       markup = `&lt;div class="linear-legend--totals">
-        &lt;strong>${i18nMessages.totals}:&lt;/strong>
-        ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${i18nMessages.day})
+        &lt;strong>${$.i18n('totals')}:&lt;/strong>
+        ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${$.i18n('day')})
       &lt;/div>`;
     }
     markup += '&lt;div class="linear-legends">';
@@ -74,14 +74,14 @@ const templates = {
             &lt;a href="${getPageURL(datasets[i].label)}" target="_blank">${datasets[i].label}&lt;/a>
           &lt;/div>
           &lt;div class="linear-legend--counts">
-            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${i18nMessages.day})
+            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${$.i18n('day')})
           &lt;/div>
           &lt;div class="linear-legend--links">
             &lt;a href="${getLangviewsURL(datasets[i].label)}" target="_blank">All languages&lt;/a>
             &amp;bullet;
-            &lt;a href="${getPageURL(datasets[i].label)}?action=history" target="_blank">History&lt;/a>
+            &lt;a href="${getExpandedPageURL(datasets[i].label)}?action=history" target="_blank">History&lt;/a>
             &amp;bullet;
-            &lt;a href="${getPageURL(datasets[i].label)}?action=info" target="_blank">Info&lt;/a>
+            &lt;a href="${getExpandedPageURL(datasets[i].label)}?action=info" target="_blank">Info&lt;/a>
           &lt;/div>
         &lt;/span>
       `;
@@ -89,29 +89,31 @@ const templates = {
     return markup += '&lt;/div>';
   },
   circularLegend: datasets => {
-    const total = datasets.reduce((a,b) => a + b.sum, 0);
-    markup = `&lt;div class="linear-legend--totals">
-      &lt;strong>${i18nMessages.totals}:&lt;/strong>
-      ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${i18nMessages.day})
+    const dataset = datasets[0],
+      total = dataset.data.reduce((a,b) => a + b);
+    let markup = `&lt;div class="linear-legend--totals">
+      &lt;strong>${$.i18n('totals')}:&lt;/strong>
+      ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${$.i18n('day')})
     &lt;/div>`;
 
     markup += '&lt;div class="linear-legends">';
 
-    for (let i = 0; i &lt; datasets.length; i++) {
+    for (let i = 0; i &lt; dataset.data.length; i++) {
+      const label = dataset.metaData[i]._view.label;
       markup += `
         &lt;span class="linear-legend">
-          &lt;div class="linear-legend--label" style="background-color:${pv.rgba(datasets[i].color, 0.8)}">
-            &lt;a href="${getPageURL(datasets[i].label)}" target="_blank">${datasets[i].label}&lt;/a>
+          &lt;div class="linear-legend--label" style="background-color:${dataset.backgroundColor[i]}">
+            &lt;a href="${getPageURL(label)}" target="_blank">${label}&lt;/a>
           &lt;/div>
           &lt;div class="linear-legend--counts">
-            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${i18nMessages.day})
+            ${formatNumber(dataset.data[i])} (${formatNumber(dataset.averages[i])}/${$.i18n('day')})
           &lt;/div>
           &lt;div class="linear-legend--links">
-            &lt;a href="${getLangviewsURL(datasets[i].label)}" target="_blank">All languages&lt;/a>
+            &lt;a href="${getLangviewsURL(label)}" target="_blank">All languages&lt;/a>
             &amp;bullet;
-            &lt;a href="${getPageURL(datasets[i].label)}?action=history" target="_blank">History&lt;/a>
+            &lt;a href="${getPageURL(label)}?action=history" target="_blank">History&lt;/a>
             &amp;bullet;
-            &lt;a href="${getPageURL(datasets[i].label)}?action=info" target="_blank">Info&lt;/a>
+            &lt;a href="${getPageURL(label)}?action=info" target="_blank">Info&lt;/a>
           &lt;/div>
         &lt;/span>
       `;
@@ -131,13 +133,13 @@ module.exports = templates;
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#templates">templates</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="LangViews.html">LangViews</a></li><li><a href="PageViews.html">PageViews</a></li><li><a href="Pv.html">Pv</a></li><li><a href="TopViews.html">TopViews</a></li></ul><h3>Global</h3><ul><li><a href="global.html#config">config</a></li><li><a href="global.html#siteMap">siteMap</a></li><li><a href="global.html#templates">templates</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Fri Apr 29 2016 03:03:01 GMT-0400 (EDT)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.0</a> on Sun May 08 2016 17:59:20 GMT-0400 (EDT)
 </footer>
 
 <script> prettyPrint(); </script>

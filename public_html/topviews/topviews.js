@@ -16,6 +16,44 @@ String.prototype.score = function () {
   return this.replace(/ /g, '_');
 };
 
+/*
+ * HOT PATCH for Chart.js GetElementsAtEvent
+ * https://github.com/chartjs/Chart.js/issues/2299
+ * TODO: remove me when this gets implemented into Charts.js core
+ */
+Chart.Controller.prototype.getElementsAtEvent = function (e) {
+  var helpers = Chart.helpers;
+  var eventPosition = helpers.getRelativePosition(e, this.chart);
+  var elementsArray = [];
+
+  var found = function () {
+    if (this.data.datasets) {
+      for (var i = 0; i < this.data.datasets.length; i++) {
+        if (helpers.isDatasetVisible(this.data.datasets[i])) {
+          for (var j = 0; j < this.data.datasets[i].metaData.length; j++) {
+            /* eslint-disable max-depth */
+            if (this.data.datasets[i].metaData[j].inLabelRange(eventPosition.x, eventPosition.y)) {
+              return this.data.datasets[i].metaData[j];
+            }
+          }
+        }
+      }
+    }
+  }.call(this);
+
+  if (!found) {
+    return elementsArray;
+  }
+
+  helpers.each(this.data.datasets, function (dataset, dsIndex) {
+    if (helpers.isDatasetVisible(dataset)) {
+      elementsArray.push(dataset.metaData[found._index]);
+    }
+  });
+
+  return elementsArray;
+};
+
 },{}],2:[function(require,module,exports){
 'use strict';
 
@@ -137,7 +175,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  * @license MIT License: https://opensource.org/licenses/MIT
  */
 
-/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
+/** Pv class, contains shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -736,6 +774,11 @@ var Pv = function () {
         document.cookie = 'TsIntuition_expiry=' + expiryUnix + '; expires=' + expiryGMT + '; path=/';
         location.reload();
       });
+
+      $('.permalink').on('click', function (e) {
+        _this2.specialRange = null;
+        _this2.daterangepicker.updateElement();
+      });
     }
 
     /**
@@ -815,7 +858,7 @@ var Pv = function () {
 
     /**
      * Get the daterangepicker instance. Plain and simple.
-     * @return {Object} daterange picker
+     * @returns {Object} daterange picker
      */
 
   }, {
@@ -1913,7 +1956,7 @@ var TopViews = function (_Pv) {
 
         var width = 100 * (item.views / this.max);
 
-        $('.chart-container').append('<div class=\'topview-entry\' style=\'background:linear-gradient(to right, #EEE ' + width + '%, transparent ' + width + '%)\'>\n         <span class=\'topview-entry--remove glyphicon glyphicon-remove\' data-article-id=' + (index - 1) + ' aria-hidden=\'true\'></span>\n         <span class=\'topview-entry--rank\'>' + ++count + '</span>\n         <a class=\'topview-entry--label\' href="' + this.getPageURL(item.article) + '" target="_blank">' + item.article + '</a>\n         <span class=\'topview-entry--leader\'></span>\n         <a class=\'topview-entry--views\' href=\'' + this.getPageviewsURL(item.article) + '\'>' + this.n(item.views) + '</a></div>');
+        $('.chart-container').append('<div class=\'topview-entry\' style=\'background:linear-gradient(to right, #EEE ' + width + '%, transparent ' + width + '%)\'>\n         <span class=\'topview-entry--remove glyphicon glyphicon-remove\' data-article-id=' + (index - 1) + ' aria-hidden=\'true\'></span>\n         <span class=\'topview-entry--rank\'>' + ++count + '</span>\n         <a class=\'topview-entry--label\' href="' + this.getPageURL(item.article) + '" target="_blank">' + item.article + '</a>\n         <span class=\'topview-entry--leader\'></span>\n         <a class=\'topview-entry--views\' href=\'' + this.getPageviewsURL(item.article) + '\'>' + this.formatNumber(item.views) + '</a></div>');
       }
 
       this.pushParams();

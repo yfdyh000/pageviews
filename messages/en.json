@@ -119,7 +119,6 @@
 	"wikidata-error": "Error querying Wikidata",
 	"wikidata-error-unknown": "An unknown error occurred when querying Wikidata",
 	"langviews-error": "Error fetching data for $1",
-<<<<<<< HEAD
 	"langviews-throttle-notice": "Requests are currently being throttled for performance reasons.<br/>See $1 for more information.",
 	"langviews-throttle-wait": "Please wait $1 seconds before submitting another request.<br/>Apologies for the inconvenience. This is a temporary throttling tactic.<br/>See $2 for more information.",
 	"faq-return-to": "Return to $1",

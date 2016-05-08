@@ -287,7 +287,7 @@ var LangViews = function (_Pv) {
         return '<span class=\'nowrap\'>' + _this3.getBadgeMarkup(badge) + ' &times; ' + _this3.totals.badges[badge] + '</span>';
       }).join(', ');
 
-      $('.output-totals').html('<th scope=\'row\'>' + $.i18n('totals') + '</th>\n       <th>' + $.i18n('num-languages', this.langData.length) + '</th>\n       <th>' + $.i18n('unique-titles', this.totals.titles.length) + '</th>\n       <th>' + totalBadgesMarkup + '</th>\n       <th>' + this.n(this.totals.views) + '</th>\n       <th>' + this.n(Math.round(this.totals.views / this.numDaysInRange())) + ' / ' + $.i18n('day') + '</th>');
+      $('.output-totals').html('<th scope=\'row\'>' + $.i18n('totals') + '</th>\n       <th>' + $.i18n('num-languages', this.langData.length) + '</th>\n       <th>' + $.i18n('unique-titles', this.totals.titles.length) + '</th>\n       <th>' + totalBadgesMarkup + '</th>\n       <th>' + this.formatNumber(this.totals.views) + '</th>\n       <th>' + this.formatNumber(Math.round(this.totals.views / this.numDaysInRange())) + ' / ' + $.i18n('day') + '</th>');
       $('#lang_list').html('');
 
       sortedLangViews.forEach(function (item, index) {
@@ -296,7 +296,7 @@ var LangViews = function (_Pv) {
           badgeMarkup = item.badges.map(_this3.getBadgeMarkup).join();
         }
 
-        $('#lang_list').append('<tr>\n         <th scope=\'row\'>' + (index + 1) + '</th>\n         <td>' + item.lang + '</td>\n         <td><a href="' + item.url + '" target="_blank">' + item.pageName + '</a></td>\n         <td>' + badgeMarkup + '</td>\n         <td><a href=\'' + _this3.getPageviewsURL(item.lang, _this3.baseProject, item.pageName) + '\'>' + _this3.n(item.views) + '</a></td>\n         <td>' + _this3.n(Math.round(item.views / _this3.numDaysInRange())) + ' / ' + $.i18n('day') + '</td>\n         </tr>');
+        $('#lang_list').append('<tr>\n         <th scope=\'row\'>' + (index + 1) + '</th>\n         <td>' + item.lang + '</td>\n         <td><a href="' + item.url + '" target="_blank">' + item.pageName + '</a></td>\n         <td>' + badgeMarkup + '</td>\n         <td><a href=\'' + _this3.getPageviewsURL(item.lang, _this3.baseProject, item.pageName) + '\'>' + _this3.n(item.views) + '</a></td>\n         <td>' + _this3.formatNumber(Math.round(item.views / _this3.numDaysInRange())) + ' / ' + $.i18n('day') + '</td>\n         </tr>');
       });
 
       this.pushParams();
@@ -926,6 +926,44 @@ String.prototype.score = function () {
   return this.replace(/ /g, '_');
 };
 
+/*
+ * HOT PATCH for Chart.js GetElementsAtEvent
+ * https://github.com/chartjs/Chart.js/issues/2299
+ * TODO: remove me when this gets implemented into Charts.js core
+ */
+Chart.Controller.prototype.getElementsAtEvent = function (e) {
+  var helpers = Chart.helpers;
+  var eventPosition = helpers.getRelativePosition(e, this.chart);
+  var elementsArray = [];
+
+  var found = function () {
+    if (this.data.datasets) {
+      for (var i = 0; i < this.data.datasets.length; i++) {
+        if (helpers.isDatasetVisible(this.data.datasets[i])) {
+          for (var j = 0; j < this.data.datasets[i].metaData.length; j++) {
+            /* eslint-disable max-depth */
+            if (this.data.datasets[i].metaData[j].inLabelRange(eventPosition.x, eventPosition.y)) {
+              return this.data.datasets[i].metaData[j];
+            }
+          }
+        }
+      }
+    }
+  }.call(this);
+
+  if (!found) {
+    return elementsArray;
+  }
+
+  helpers.each(this.data.datasets, function (dataset, dsIndex) {
+    if (helpers.isDatasetVisible(dataset)) {
+      elementsArray.push(dataset.metaData[found._index]);
+    }
+  });
+
+  return elementsArray;
+};
+
 },{}],4:[function(require,module,exports){
 'use strict';
 
@@ -1047,7 +1085,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  * @license MIT License: https://opensource.org/licenses/MIT
  */
 
-/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
+/** Pv class, contains shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -1646,6 +1684,11 @@ var Pv = function () {
         document.cookie = 'TsIntuition_expiry=' + expiryUnix + '; expires=' + expiryGMT + '; path=/';
         location.reload();
       });
+
+      $('.permalink').on('click', function (e) {
+        _this2.specialRange = null;
+        _this2.daterangepicker.updateElement();
+      });
     }
 
     /**
@@ -1725,7 +1768,7 @@ var Pv = function () {
 
     /**
      * Get the daterangepicker instance. Plain and simple.
-     * @return {Object} daterange picker
+     * @returns {Object} daterange picker
      */
 
   }, {

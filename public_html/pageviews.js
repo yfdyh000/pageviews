@@ -111,13 +111,6 @@ var config = {
       opts: {
         legendCallback: function legendCallback(chart) {
           return templates.linearLegend(chart.data.datasets);
-        },
-        scales: {
-          xAxes: [{
-            ticks: {
-              beginAtZero: true
-            }
-          }]
         }
       },
       dataset: function dataset(color) {
@@ -242,35 +235,37 @@ var PageViews = function (_Pv) {
     window.formatNumber = _this.formatNumber.bind(_this);
     window.getPageURL = _this.getPageURL.bind(_this);
     window.getLangviewsURL = _this.getLangviewsURL.bind(_this);
+    window.getExpandedPageURL = _this.getExpandedPageURL.bind(_this);
     window.numDaysInRange = _this.numDaysInRange.bind(_this);
-
-    _this.setupProjectInput();
-    _this.setupDateRangeSelector();
-    _this.setupArticleSelector();
-    _this.setupSettingsModal();
-    _this.setupSelect2Colors();
-    _this.popParams();
-    _this.setupListeners();
-
-    if (location.host !== 'localhost') {
-      /** simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :) */
-      $.ajax({
-        url: '//tools.wmflabs.org/musikanimal/api/pv_uses/' + _this.project,
-        method: 'PATCH'
-      });
-
-      _this.splash();
-    }
+    window.isMultilangProject = _this.isMultilangProject.bind(_this);
     return _this;
   }
 
   /**
-   * Destroy previous chart, if needed.
-   * @returns {null} nothing
+   * Initialize the application.
+   * Called in `pv.js` after translations have loaded
+   * @return {null} Nothing
    */
 
 
   _createClass(PageViews, [{
+    key: 'initialize',
+    value: function initialize() {
+      this.setupProjectInput();
+      this.setupDateRangeSelector();
+      this.setupArticleSelector();
+      this.setupSettingsModal();
+      this.setupSelect2Colors();
+      this.popParams();
+      this.setupListeners();
+    }
+
+    /**
+     * Destroy previous chart, if needed.
+     * @returns {null} nothing
+     */
+
+  }, {
     key: 'destroyChart',
     value: function destroyChart() {
       if (this.chartObj) {
@@ -471,7 +466,7 @@ var PageViews = function (_Pv) {
   }, {
     key: 'getLangviewsURL',
     value: function getLangviewsURL(page) {
-      return '/langviews?' + $.param(this.getParams()) + '&page=' + page.replace(/[&%]/g, escape);
+      return '/langviews?' + $.param(this.getParams()) + '&page=' + page.replace(/[&%]/g, escape).score();
     }
 
     /**
@@ -506,6 +501,19 @@ var PageViews = function (_Pv) {
         average: average,
         max: max
       }, config.chartConfig[this.chartType].dataset(color));
+    }
+
+    /**
+     * Get params needed to create a permanent link of visible data
+     * @return {Object} hash of params
+     */
+
+  }, {
+    key: 'getPermaLink',
+    value: function getPermaLink() {
+      var params = this.getParams(false);
+      delete params.range;
+      return params;
     }
 
     /**
@@ -603,6 +611,22 @@ var PageViews = function (_Pv) {
     }
 
     /**
+     * Simple metric to see how many use it (pageviews of the pageview, a meta-pageview, if you will :)
+     * @return {null} nothing
+     */
+
+  }, {
+    key: 'patchUsage',
+    value: function patchUsage() {
+      if (location.host !== 'localhost') {
+        $.ajax({
+          url: '//tools.wmflabs.org/musikanimal/api/pv_uses/' + this.project,
+          method: 'PATCH'
+        });
+      }
+    }
+
+    /**
      * Parses the URL hash and sets all the inputs accordingly
      * Should only be called on initial page load, until we decide to support pop states (probably never)
      * @returns {null} nothing
@@ -627,24 +651,26 @@ var PageViews = function (_Pv) {
       $(config.projectInput).val(params.project || config.defaults.project);
       if (this.validateProject()) return;
 
+      this.patchUsage();
+
       /**
        * Check if we're using a valid range, and if so ignore any start/end dates.
        * If an invalid range, throw and error and use default dates.
        */
       if (params.range) {
         if (!this.setSpecialRange(params.range)) {
-          this.addSiteNotice('danger', i18nMessages.paramError3, i18nMessages.invalidParams, true);
+          this.addSiteNotice('danger', $.i18n('param-error-3'), $.i18n('invalid-params'), true);
           this.setSpecialRange(config.defaults.dateRange);
         }
       } else if (params.start) {
         startDate = moment(params.start || moment().subtract(config.defaults.daysAgo, 'days'));
         endDate = moment(params.end || Date.now());
         if (startDate < moment('2015-08-01') || endDate < moment('2015-08-01')) {
-          this.addSiteNotice('danger', i18nMessages.paramError1, i18nMessages.invalidParams, true);
+          this.addSiteNotice('danger', $.i18n('param-error-1'), $.i18n('invalid-params'), true);
           this.resetView();
           return;
         } else if (startDate > endDate) {
-          this.addSiteNotice('warning', i18nMessages.paramError2, i18nMessages.invalidParams, true);
+          this.addSiteNotice('warning', $.i18n('param-error-2'), $.i18n('invalid-params'), true);
           this.resetView();
           return;
         }
@@ -865,7 +891,7 @@ var PageViews = function (_Pv) {
       var params = {
         ajax: this.getArticleSelectorAjax(),
         tags: this.autocomplete === 'no_autocomplete',
-        placeholder: i18nMessages.articlePlaceholder,
+        placeholder: $.i18n('article-placeholder'),
         maximumSelectionLength: 10,
         minimumInputLength: 1
       };
@@ -942,17 +968,17 @@ var PageViews = function (_Pv) {
       /** transform config.specialRanges to have i18n as keys */
       var ranges = {};
       Object.keys(config.specialRanges).forEach(function (key) {
-        ranges[i18nMessages[key]] = config.specialRanges[key];
+        ranges[$.i18n(key)] = config.specialRanges[key];
       });
 
       dateRangeSelector.daterangepicker({
         locale: {
           format: this.dateFormat,
-          applyLabel: i18nMessages.apply,
-          cancelLabel: i18nMessages.cancel,
-          customRangeLabel: i18nMessages.customRange,
-          daysOfWeek: [i18nMessages.su, i18nMessages.mo, i18nMessages.tu, i18nMessages.we, i18nMessages.th, i18nMessages.fr, i18nMessages.sa],
-          monthNames: [i18nMessages.january, i18nMessages.february, i18nMessages.march, i18nMessages.april, i18nMessages.may, i18nMessages.june, i18nMessages.july, i18nMessages.august, i18nMessages.september, i18nMessages.october, i18nMessages.november, i18nMessages.december]
+          applyLabel: $.i18n('apply'),
+          cancelLabel: $.i18n('cancel'),
+          customRangeLabel: $.i18n('custom-range'),
+          daysOfWeek: [$.i18n('su'), $.i18n('mo'), $.i18n('tu'), $.i18n('we'), $.i18n('th'), $.i18n('fr'), $.i18n('sa')],
+          monthNames: [$.i18n('january'), $.i18n('february'), $.i18n('march'), $.i18n('april'), $.i18n('may'), $.i18n('june'), $.i18n('july'), $.i18n('august'), $.i18n('september'), $.i18n('october'), $.i18n('november'), $.i18n('december')]
         },
         startDate: moment().subtract(config.defaults.daysAgo, 'days'),
         minDate: config.minDate,
@@ -961,7 +987,7 @@ var PageViews = function (_Pv) {
       });
 
       /** so people know why they can't query data older than August 2015 */
-      $('.daterangepicker').append($('<div>').addClass('daterange-notice').html(i18nMessages.dateNotice));
+      $('.daterangepicker').append($('<div>').addClass('daterange-notice').html($.i18n('date-notice', document.title, "<a href='http://stats.grok.se' target='_blank'>stats.grok.se</a>")));
 
       /**
        * The special date range options (buttons the right side of the daterange picker)
@@ -986,7 +1012,7 @@ var PageViews = function (_Pv) {
       });
 
       dateRangeSelector.on('apply.daterangepicker', function (e, action) {
-        if (action.chosenLabel === i18nMessages.customRange) {
+        if (action.chosenLabel === $.i18n('custom-range')) {
           _this7.specialRange = null;
 
           /** force events to re-fire since apply.daterangepicker occurs before 'change' event */
@@ -1180,7 +1206,7 @@ var PageViews = function (_Pv) {
           }
         }).fail(function (data) {
           if (data.status === 404) {
-            _this11.writeMessage('<a href=\'' + _this11.getPageURL(article) + '\'>' + article.descore() + '</a> - ' + i18nMessages.apiErrorNoData);
+            _this11.writeMessage('<a href=\'' + _this11.getPageURL(article) + '\'>' + article.descore() + '</a> - ' + $.i18n('api-error-no-data'));
             xhrData.articles = xhrData.articles.filter(function (el) {
               return el !== article;
             });
@@ -1205,6 +1231,10 @@ var PageViews = function (_Pv) {
      * @param  {Object} xhrData - data as constructed by processArticles()
      * @return {null} Nothing
      */
+    // BLOCKERS:
+    // https://github.com/chartjs/Chart.js/issues/2056
+    // https://github.com/chartjs/Chart.js/issues/2354
+    // https://github.com/chartjs/Chart.js/issues/1980
 
   }, {
     key: 'updateChart',
@@ -1217,7 +1247,7 @@ var PageViews = function (_Pv) {
         var errorMessages = Array.from(new Set(xhrData.errors)).map(function (error) {
           return '<li>' + error + '</li>';
         }).join('');
-        return this.writeMessage(i18nMessages.apiError + '<ul>' + errorMessages + '</ul><br/>' + i18nMessages.apiErrorContact, true);
+        return this.writeMessage($.i18n('api-error') + '<ul>' + errorMessages + '</ul><br/>' + $.i18n('api-error-contact'), true);
       }
 
       if (!xhrData.articles.length) return;
@@ -1236,7 +1266,7 @@ var PageViews = function (_Pv) {
           callbacks: {
             label: function label(tooltipItem) {
               if (Number.isNaN(tooltipItem.yLabel)) {
-                return ' ' + i18nMessages.unknown;
+                return ' ' + $.i18n('unknown');
               } else {
                 return ' ' + formatNumber(tooltipItem.yLabel);
               }
@@ -1327,7 +1357,7 @@ var PageViews = function (_Pv) {
         $('.select2-selection--multiple').removeClass('disabled');
       } else {
         this.resetView();
-        this.writeMessage(i18nMessages.invalidProject.i18nArg('<a href=\'//' + project + '\'>' + project + '</a>'), true);
+        this.writeMessage($.i18n('invalid-project', '<a href=\'//' + project + '\'>' + project + '</a>'), true);
         $('.select2-selection--multiple').addClass('disabled');
         return true;
       }
@@ -1358,16 +1388,10 @@ String.prototype.descore = function () {
 String.prototype.score = function () {
   return this.replace(/ /g, '_');
 };
-String.prototype.i18nArg = function (args) {
-  var newStr = this;
-  Array.of(args).forEach(function (arg) {
-    newStr = newStr.replace('i18n-arg', arg);
-  });
-  return newStr;
-};
 
 /*
  * HOT PATCH for Chart.js GetElementsAtEvent
+ * https://github.com/chartjs/Chart.js/issues/2299
  * TODO: remove me when this gets implemented into Charts.js core
  */
 Chart.Controller.prototype.getElementsAtEvent = function (e) {
@@ -1480,6 +1504,30 @@ if (!Array.of) {
   };
 }
 
+// Array.find
+if (!Array.prototype.find) {
+  Array.prototype.find = function (predicate) {
+    if (this === null) {
+      throw new TypeError('Array.prototype.find called on null or undefined');
+    }
+    if (typeof predicate !== 'function') {
+      throw new TypeError('predicate must be a function');
+    }
+    var list = Object(this);
+    var length = list.length >>> 0;
+    var thisArg = arguments[1];
+    var value = undefined;
+
+    for (var i = 0; i < length; i++) {
+      value = list[i];
+      if (predicate.call(thisArg, value, i, list)) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+}
+
 },{}],5:[function(require,module,exports){
 'use strict';
 
@@ -1489,16 +1537,18 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
  * @file Shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews)
- * @author MusikAnimal
+ * @author MusikAnimal, Kaldari
  * @copyright 2016 MusikAnimal
  * @license MIT License: https://opensource.org/licenses/MIT
  */
 
-/** Pv class, contains code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
+/** Pv class, contains shared code amongst all apps (Pageviews, Topviews, Langviews, Siteviews) */
 
 var Pv = function () {
   function Pv() {
@@ -1506,9 +1556,26 @@ var Pv = function () {
 
     this.storage = {}; // used as fallback when localStorage is not supported
 
+    /** assign app instance to window for debugging on local environment */
     if (location.host === 'localhost') {
       window.app = this;
+    } else {
+      this.splash();
     }
+
+    /** show notice if on staging environment */
+    if (/-test/.test(location.pathname)) {
+      var actualPathName = location.pathname.replace(/-test\/?/, '');
+      this.addSiteNotice('warning', 'This is a staging environment. For the actual ' + document.title + ',\n         see <a href=\'' + actualPathName + '\'>' + location.hostname + actualPathName + '</a>');
+    }
+
+    /**
+     * Load translations then initialize the app
+     * Each app has it's own initialize method
+     */
+    $.i18n({
+      locale: i18nLang
+    }).load(_defineProperty({}, i18nLang, '/pageviews/messages/' + i18nLang + '.json')).then(this.initialize.bind(this));
   }
 
   _createClass(Pv, [{
@@ -1557,6 +1624,20 @@ var Pv = function () {
     }
 
     /**
+     * Get the explanded wiki URL given the page name
+     * This should be used instead of getPageURL when you want to chain query string parameters
+     *
+     * @param {string} page name
+     * @returns {string} URL for the page
+     */
+
+  }, {
+    key: 'getExpandedPageURL',
+    value: function getExpandedPageURL(page) {
+      return '//' + this.project + '.org/w/index.php?title=' + encodeURIComponent(page).replace(/ /g, '_').replace(/'/, escape);
+    }
+
+    /**
      * Get the wiki URL given the page name
      *
      * @param {string} page name
@@ -1582,7 +1663,7 @@ var Pv = function () {
         'ar-sa': 'DD/MM/YY',
         'bg-bg': 'DD.M.YYYY',
         'ca-es': 'DD/MM/YYYY',
-        'zh-tw': 'YYYY/M/d',
+        'zh-tw': 'YYYY/M/D',
         'cs-cz': 'D.M.YYYY',
         'da-dk': 'DD-MM-YYYY',
         'de-de': 'DD.MM.YYYY',
@@ -1717,7 +1798,7 @@ var Pv = function () {
         'tzm-latn-dz': 'DD-MM-YYYY',
         'iu-latn-ca': 'D/MM/YYYY',
         'sma-no': 'DD.MM.YYYY',
-        'mn-mong-cn': 'YYYY/M/d',
+        'mn-mong-cn': 'YYYY/M/D',
         'gd-gb': 'DD/MM/YYYY',
         'en-my': 'D/M/YYYY',
         'prs-af': 'DD/MM/YY',
@@ -1800,6 +1881,17 @@ var Pv = function () {
     }
 
     /**
+     * Test if the current project is a multilingual project
+     * @returns {Boolean} is multilingual or not
+     */
+
+  }, {
+    key: 'isMultilangProject',
+    value: function isMultilangProject() {
+      return new RegExp('.*?\\.(' + Pv.multilangProjects.join('|') + ')').test(this.project);
+    }
+
+    /**
      * Generate a unique hash code from given string
      * @param  {String} str - to be hashed
      * @return {String} the hash
@@ -1851,14 +1943,20 @@ var Pv = function () {
     }
 
     /**
+     * List of valid multilingual projects
+     * @return {Array} base projects, without the language
+     */
+
+  }, {
+    key: 'n',
+
+
+    /**
      * Localize Number object with delimiters
      *
      * @param {Number} value - the Number, e.g. 1234567
      * @returns {string} - with locale delimiters, e.g. 1,234,567 (en-US)
      */
-
-  }, {
-    key: 'n',
     value: function n(value) {
       return new Number(value).toLocaleString();
     }
@@ -2153,6 +2251,11 @@ var Pv = function () {
     value: function rgba(value, alpha) {
       return value.replace(/,\s*\d\)/, ', ' + alpha + ')');
     }
+  }, {
+    key: 'multilangProjects',
+    get: function get() {
+      return ['wikipedia', 'wikibooks', 'wikinews', 'wikiquote', 'wikisource', 'wikiversity', 'wikivoyage'];
+    }
   }]);
 
   return Pv;
@@ -2165,6 +2268,11 @@ module.exports = Pv;
 
 /**
  * @file WMF [site matrix](https://www.mediawiki.org/w/api.php?action=sitematrix), with some unsupported wikis removed
+ */
+
+/**
+ * Sitematrix of all supported WMF wikis
+ * @type {Object}
  */
 var siteMap = {
   'aawiki': 'aa.wikipedia.org',
@@ -3088,19 +3196,19 @@ var templates = {
     var markup = '';
     if (datasets.length === 1) {
       var dataset = datasets[0];
-      return '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(dataset.sum) + ' (' + formatNumber(dataset.average) + '/' + i18nMessages.day + ')\n        &bullet;\n        <a href="' + getLangviewsURL(dataset.label) + '" target="_blank">All languages</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=history" target="_blank">History</a>\n        &bullet;\n        <a href="' + getPageURL(dataset.label) + '?action=info" target="_blank">Info</a>\n      </div>';
+      return '<div class="linear-legend--totals">\n        <strong>' + $.i18n('totals') + ':</strong>\n        ' + formatNumber(dataset.sum) + ' (' + formatNumber(dataset.average) + '/' + $.i18n('day') + ')\n        &bullet;\n        <a href="' + getLangviewsURL(dataset.label) + '" target="_blank">All languages</a>\n        &bullet;\n        <a href="' + getExpandedPageURL(dataset.label) + '?action=history" target="_blank">History</a>\n        &bullet;\n        <a href="' + getExpandedPageURL(dataset.label) + '?action=info" target="_blank">Info</a>\n      </div>';
     }
 
     if (datasets.length > 1) {
       var total = datasets.reduce(function (a, b) {
         return a + b.sum;
       }, 0);
-      markup = '<div class="linear-legend--totals">\n        <strong>' + i18nMessages.totals + ':</strong>\n        ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n      </div>';
+      markup = '<div class="linear-legend--totals">\n        <strong>' + $.i18n('totals') + ':</strong>\n        ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + $.i18n('day') + ')\n      </div>';
     }
     markup += '<div class="linear-legends">';
 
     for (var i = 0; i < datasets.length; i++) {
-      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(datasets[i].average) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + pv.rgba(datasets[i].color, 0.8) + '">\n            <a href="' + getPageURL(datasets[i].label) + '" target="_blank">' + datasets[i].label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(datasets[i].sum) + ' (' + formatNumber(datasets[i].average) + '/' + $.i18n('day') + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(datasets[i].label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getExpandedPageURL(datasets[i].label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getExpandedPageURL(datasets[i].label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
     }
     return markup += '</div>';
   },
@@ -3109,13 +3217,13 @@ var templates = {
         total = dataset.data.reduce(function (a, b) {
       return a + b;
     });
-    var markup = '<div class="linear-legend--totals">\n      <strong>' + i18nMessages.totals + ':</strong>\n      ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + i18nMessages.day + ')\n    </div>';
+    var markup = '<div class="linear-legend--totals">\n      <strong>' + $.i18n('totals') + ':</strong>\n      ' + formatNumber(total) + ' (' + formatNumber(Math.round(total / numDaysInRange())) + '/' + $.i18n('day') + ')\n    </div>';
 
     markup += '<div class="linear-legends">';
 
     for (var i = 0; i < dataset.data.length; i++) {
       var label = dataset.metaData[i]._view.label;
-      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + dataset.backgroundColor[i] + '">\n            <a href="' + getPageURL(label) + '" target="_blank">' + label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(dataset.data[i]) + ' (' + formatNumber(dataset.averages[i]) + '/' + i18nMessages.day + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
+      markup += '\n        <span class="linear-legend">\n          <div class="linear-legend--label" style="background-color:' + dataset.backgroundColor[i] + '">\n            <a href="' + getPageURL(label) + '" target="_blank">' + label + '</a>\n          </div>\n          <div class="linear-legend--counts">\n            ' + formatNumber(dataset.data[i]) + ' (' + formatNumber(dataset.averages[i]) + '/' + $.i18n('day') + ')\n          </div>\n          <div class="linear-legend--links">\n            <a href="' + getLangviewsURL(label) + '" target="_blank">All languages</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=history" target="_blank">History</a>\n            &bullet;\n            <a href="' + getPageURL(label) + '?action=info" target="_blank">Info</a>\n          </div>\n        </span>\n      ';
     }
     return markup += '</div>';
   }

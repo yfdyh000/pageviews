@@ -19,8 +19,8 @@ const templates = {
     if (datasets.length === 1) {
       const dataset = datasets[0];
       return `<div class="linear-legend--totals">
-        <strong>${i18nMessages.totals}:</strong>
-        ${formatNumber(dataset.sum)} (${formatNumber(dataset.average)}/${i18nMessages.day})
+        <strong>${$.i18n('totals')}:</strong>
+        ${formatNumber(dataset.sum)} (${formatNumber(dataset.average)}/${$.i18n('day')})
         &bullet;
         <a href="${getLangviewsURL(dataset.label)}" target="_blank">All languages</a>
         &bullet;
@@ -33,8 +33,8 @@ const templates = {
     if (datasets.length > 1) {
       const total = datasets.reduce((a,b) => a + b.sum, 0);
       markup = `<div class="linear-legend--totals">
-        <strong>${i18nMessages.totals}:</strong>
-        ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${i18nMessages.day})
+        <strong>${$.i18n('totals')}:</strong>
+        ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${$.i18n('day')})
       </div>`;
     }
     markup += '<div class="linear-legends">';
@@ -46,7 +46,7 @@ const templates = {
             <a href="${getPageURL(datasets[i].label)}" target="_blank">${datasets[i].label}</a>
           </div>
           <div class="linear-legend--counts">
-            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${i18nMessages.day})
+            ${formatNumber(datasets[i].sum)} (${formatNumber(datasets[i].average)}/${$.i18n('day')})
           </div>
           <div class="linear-legend--links">
             <a href="${getLangviewsURL(datasets[i].label)}" target="_blank">All languages</a>
@@ -64,8 +64,8 @@ const templates = {
     const dataset = datasets[0],
       total = dataset.data.reduce((a,b) => a + b);
     let markup = `<div class="linear-legend--totals">
-      <strong>${i18nMessages.totals}:</strong>
-      ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${i18nMessages.day})
+      <strong>${$.i18n('totals')}:</strong>
+      ${formatNumber(total)} (${formatNumber(Math.round(total / numDaysInRange()))}/${$.i18n('day')})
     </div>`;
 
     markup += '<div class="linear-legends">';
@@ -78,7 +78,7 @@ const templates = {
             <a href="${getPageURL(label)}" target="_blank">${label}</a>
           </div>
           <div class="linear-legend--counts">
-            ${formatNumber(dataset.data[i])} (${formatNumber(dataset.averages[i])}/${i18nMessages.day})
+            ${formatNumber(dataset.data[i])} (${formatNumber(dataset.averages[i])}/${$.i18n('day')})
           </div>
           <div class="linear-legend--links">
             <a href="${getLangviewsURL(label)}" target="_blank">All languages</a>

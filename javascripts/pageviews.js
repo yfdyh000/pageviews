@@ -949,7 +949,7 @@ class PageViews extends Pv {
       $('.chart-container').removeClass('loading');
       const errorMessages = Array.from(new Set(xhrData.errors)).map(error => `<li>${error}</li>`).join('');
       return this.writeMessage(
-        `${i18nMessages.apiError}<ul>${errorMessages}</ul><br/>${i18nMessages.apiErrorContact}`,
+        `${$.i18n('api-error')}<ul>${errorMessages}</ul><br/>${$.i18n('api-error-contact')}`,
         true
       );
     }
@@ -970,7 +970,7 @@ class PageViews extends Pv {
         callbacks: {
           label: tooltipItem => {
             if (Number.isNaN(tooltipItem.yLabel)) {
-              return ' ' + i18nMessages.unknown;
+              return ' ' + $.i18n('unknown');
             } else {
               return ' ' + formatNumber(tooltipItem.yLabel);
             }
